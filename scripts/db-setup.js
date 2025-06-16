@@ -77,8 +77,8 @@ async function setupDatabase() {
   try {
     console.log('📋 Pushing database schema with drizzle-kit...');
     
-    // Use config file approach with --force flag for non-interactive mode
-    const pushCommand = 'npx drizzle-kit push:pg --config=drizzle.config.ts --force';
+    // Use config file approach with --yes flag for non-interactive mode (v0.20.18)
+    const pushCommand = 'npx drizzle-kit push:pg --config=drizzle.config.ts --yes';
     console.log('🔧 Executing command:', pushCommand);
     
     execSync(pushCommand, {
@@ -94,8 +94,8 @@ async function setupDatabase() {
     console.log('⚠️  Config file approach failed, trying with schema parameter...');
     
     try {
-      // Try with explicit schema parameter and force flag
-      const schemaCommand = 'npx drizzle-kit push:pg --schema=./src/lib/db/schema.ts --driver=pg --force';
+      // Try with explicit schema parameter and yes flag
+      const schemaCommand = 'npx drizzle-kit push:pg --schema=./src/lib/db/schema.ts --driver=pg --yes';
       console.log('🔧 Trying with schema parameter:', schemaCommand);
       
       execSync(schemaCommand, {
@@ -108,75 +108,112 @@ async function setupDatabase() {
       console.log('✅ Schema push completed with schema parameter');
       
     } catch (schemaError) {
-      console.log('⚠️  Schema parameter approach failed, trying direct binary...');
+      console.log('⚠️  Schema parameter approach failed, trying without confirmation flags...');
       
       try {
-        // Try direct binary with force flag
-        const directCommand = 'node_modules/.bin/drizzle-kit push:pg --config=drizzle.config.ts --force';
-        console.log('🔧 Trying direct binary:', directCommand);
+        // Try basic command without confirmation flags
+        const basicCommand = 'npx drizzle-kit push:pg --config=drizzle.config.ts';
+        console.log('🔧 Trying basic command:', basicCommand);
         
-        execSync(directCommand, {
+        // Set environment variable to auto-confirm
+        const env = { ...process.env, DRIZZLE_KIT_AUTO_CONFIRM: 'true' };
+        
+        execSync(basicCommand, {
           stdio: 'inherit',
           cwd: process.cwd(),
-          env: { ...process.env },
-          timeout: 30000
+          env: env,
+          timeout: 30000,
+          input: 'y\n' // Send 'y' as input to confirm
         });
         
-        console.log('✅ Schema push completed with direct binary');
+        console.log('✅ Schema push completed with basic command');
         
-      } catch (directError) {
+      } catch (basicError) {
         console.log('⚠️  All drizzle-kit approaches failed, creating basic tables manually...');
         
-        // Create basic tables manually using Node.js
+        // Create basic tables manually using a proper Node.js script file
         try {
-          const basicSetupScript = `
+          const { writeFileSync } = require('fs');
+          
+          // Write a temporary SQL setup script
+          const sqlSetupScript = `
             const { Client } = require('pg');
-            const client = new Client({ connectionString: process.env.DATABASE_URL });
             
             async function createBasicTables() {
-              await client.connect();
+              const client = new Client({ connectionString: process.env.DATABASE_URL });
               
-              // Create users table
-              await client.query(\`
-                CREATE TABLE IF NOT EXISTS users (
-                  id SERIAL PRIMARY KEY,
-                  email VARCHAR(255) UNIQUE NOT NULL,
-                  name VARCHAR(255),
-                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-              \`);
-              
-              // Create anonymous_sessions table
-              await client.query(\`
-                CREATE TABLE IF NOT EXISTS anonymous_sessions (
-                  id VARCHAR(255) PRIMARY KEY,
-                  ip_address VARCHAR(45),
-                  user_agent TEXT,
-                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                  last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-              \`);
-              
-              console.log('Basic tables created successfully');
-              await client.end();
+              try {
+                await client.connect();
+                console.log('Connected to database for manual setup');
+                
+                // Create users table
+                await client.query(\`
+                  CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    email VARCHAR(255) UNIQUE NOT NULL,
+                    name VARCHAR(255),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                  )
+                \`);
+                console.log('✅ Created users table');
+                
+                // Create anonymous_sessions table
+                await client.query(\`
+                  CREATE TABLE IF NOT EXISTS anonymous_sessions (
+                    id VARCHAR(255) PRIMARY KEY,
+                    ip_address VARCHAR(45),
+                    user_agent TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                  )
+                \`);
+                console.log('✅ Created anonymous_sessions table');
+                
+                // Create anonymous_activities table
+                await client.query(\`
+                  CREATE TABLE IF NOT EXISTS anonymous_activities (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    session_id VARCHAR(255) NOT NULL,
+                    activity_type VARCHAR(50) NOT NULL,
+                    activity_data JSONB NOT NULL,
+                    value_score INTEGER DEFAULT 1,
+                    page_path VARCHAR(500),
+                    element_id VARCHAR(100),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                  )
+                \`);
+                console.log('✅ Created anonymous_activities table');
+                
+                console.log('✅ Basic table creation completed successfully');
+                
+              } catch (error) {
+                console.error('❌ Error creating tables:', error.message);
+                throw error;
+              } finally {
+                await client.end();
+              }
             }
             
-            createBasicTables().catch(console.error);
+            createBasicTables();
           `;
           
-          execSync(`node -e "${basicSetupScript}"`, {
+          // Write the script to a temporary file
+          writeFileSync('/tmp/setup-tables.js', sqlSetupScript);
+          
+          // Execute the script
+          execSync('node /tmp/setup-tables.js', {
             stdio: 'inherit',
             timeout: 15000,
             env: { ...process.env }
           });
           
-          console.log('✅ Basic table creation completed');
+          console.log('✅ Manual table creation completed');
           
         } catch (sqlError) {
-          console.error('❌ All database setup approaches failed');
+          console.error('❌ Manual table creation failed');
           console.error('🔧 SQL Error:', sqlError.message);
-          throw directError; // Throw the original drizzle error
+          throw basicError; // Throw the original drizzle error
         }
       }
     }
