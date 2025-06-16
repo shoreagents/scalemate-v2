@@ -77,55 +77,55 @@ async function setupDatabase() {
   try {
     console.log('📋 Pushing database schema with drizzle-kit...');
     
-    // Use correct drizzle-kit v0.20.18 command format
-    const pushCommand = 'npx drizzle-kit push:pg --schema=./src/lib/db/schema.ts --driver=pg';
+    // Use config file approach with --force flag for non-interactive mode
+    const pushCommand = 'npx drizzle-kit push:pg --config=drizzle.config.ts --force';
     console.log('🔧 Executing command:', pushCommand);
     
     execSync(pushCommand, {
       stdio: 'inherit',
       cwd: process.cwd(),
       env: { ...process.env },
-      timeout: 30000 // 30 second timeout
+      timeout: 45000 // Longer timeout for schema creation
     });
     
     console.log('✅ Schema push completed successfully');
     
   } catch (error) {
-    console.log('⚠️  NPX approach failed, trying direct binary...');
+    console.log('⚠️  Config file approach failed, trying with schema parameter...');
     
     try {
-      // Try direct binary approach with correct parameters
-      const directCommand = 'node_modules/.bin/drizzle-kit push:pg --schema=./src/lib/db/schema.ts --driver=pg';
-      console.log('🔧 Trying direct binary:', directCommand);
+      // Try with explicit schema parameter and force flag
+      const schemaCommand = 'npx drizzle-kit push:pg --schema=./src/lib/db/schema.ts --driver=pg --force';
+      console.log('🔧 Trying with schema parameter:', schemaCommand);
       
-      execSync(directCommand, {
+      execSync(schemaCommand, {
         stdio: 'inherit',
         cwd: process.cwd(),
         env: { ...process.env },
-        timeout: 20000
+        timeout: 30000
       });
       
-      console.log('✅ Schema push completed with direct binary');
+      console.log('✅ Schema push completed with schema parameter');
       
-    } catch (directError) {
-      console.log('⚠️  Direct binary failed, trying config file approach...');
+    } catch (schemaError) {
+      console.log('⚠️  Schema parameter approach failed, trying direct binary...');
       
       try {
-        // Try using the config file directly
-        const configCommand = 'npx drizzle-kit push:pg --config=drizzle.config.ts';
-        console.log('🔧 Trying config file approach:', configCommand);
+        // Try direct binary with force flag
+        const directCommand = 'node_modules/.bin/drizzle-kit push:pg --config=drizzle.config.ts --force';
+        console.log('🔧 Trying direct binary:', directCommand);
         
-        execSync(configCommand, {
+        execSync(directCommand, {
           stdio: 'inherit',
           cwd: process.cwd(),
           env: { ...process.env },
-          timeout: 20000
+          timeout: 30000
         });
         
-        console.log('✅ Schema push completed with config file');
+        console.log('✅ Schema push completed with direct binary');
         
-      } catch (configError) {
-        console.log('⚠️  Config file approach failed, trying simple SQL...');
+      } catch (directError) {
+        console.log('⚠️  All drizzle-kit approaches failed, creating basic tables manually...');
         
         // Create basic tables manually using Node.js
         try {
@@ -176,7 +176,7 @@ async function setupDatabase() {
         } catch (sqlError) {
           console.error('❌ All database setup approaches failed');
           console.error('🔧 SQL Error:', sqlError.message);
-          throw configError; // Throw the original drizzle error
+          throw directError; // Throw the original drizzle error
         }
       }
     }
@@ -191,7 +191,7 @@ async function setupDatabase() {
         stdio: 'inherit',
         cwd: process.cwd(),
         env: { ...process.env },
-        timeout: 15000 // 15 second timeout for seeding
+        timeout: 20000 // Longer timeout for seeding
       });
       
       console.log('✅ Database seeding completed successfully');
