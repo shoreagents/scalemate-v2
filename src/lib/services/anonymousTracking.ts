@@ -250,7 +250,7 @@ export class AnonymousTrackingService {
     else if (totalValueScore > 20) engagementLevel = 'medium'
     
     // Calculate conversion probability
-    let conversionProbability = Math.min(totalValueScore / 100, 0.95)
+    const conversionProbability = Math.min(totalValueScore / 100, 0.95)
     
     return {
       totalActivities,

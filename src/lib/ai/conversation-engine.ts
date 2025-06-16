@@ -333,16 +333,19 @@ Return only valid JSON with extracted values. If information isn't present, omit
   }
 
   private async buildConversationContext(session: any): Promise<any> {
-    const memory = await this.memoryManager.getMemory(session.id)
+    // Get memory from database instead of memoryManager
+    const businessContext = await this.getBusinessContext(session.id)
+    const roleRequirements = await this.getRoleRequirements(session.id)
+    const qualificationCriteria = await this.getQualificationCriteria(session.id)
     
     return {
       sessionId: session.id,
       phase: session.phase,
       step: session.currentStep,
-      businessContext: memory.businessContext || {},
-      roleRequirements: memory.roleRequirements || {},
-      qualificationData: memory.qualificationData || {},
-      previousInsights: memory.previousInsights || {},
+      businessContext: businessContext || '',
+      roleRequirements: roleRequirements || [],
+      qualificationData: qualificationCriteria || {},
+      previousInsights: {},
       conversationHistory: session.messages?.slice(0, 5) || []
     }
   }

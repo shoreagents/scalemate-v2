@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/ButtonComponent'
+import { Card } from '@/components/ui/Card'
 import { ConversationInterface } from '@/components/ai/ConversationInterface'
 import { QuoteDisplay } from '@/components/ai/QuoteDisplay'
 import { Calculator, Sparkles, MessageSquare, FileText, ArrowRight, Brain, Zap, Target } from 'lucide-react'
@@ -125,7 +125,7 @@ export default function QuoteCalculatorPage() {
                       Your Personalized Quote is Ready! 🎉
                     </h2>
                     <p className="text-gray-600 max-w-2xl mx-auto">
-                      Based on our conversation, here's your comprehensive offshore staffing solution 
+                      Based on our conversation, here&apos;s your comprehensive offshore staffing solution 
                       with transparent pricing and implementation plan.
                     </p>
                   </div>
@@ -144,7 +144,7 @@ export default function QuoteCalculatorPage() {
               <div className="text-center mb-8">
                 <h2 className="text-2xl font-semibold text-gray-900 mb-4">Traditional Quote Form</h2>
                 <p className="text-gray-600">
-                  Prefer a traditional form? We're working on integrating our advanced AI system 
+                  Prefer a traditional form? We&apos;re working on integrating our advanced AI system 
                   with a streamlined form experience.
                 </p>
               </div>
@@ -155,7 +155,7 @@ export default function QuoteCalculatorPage() {
                   <h3 className="font-semibold text-gray-900">Coming Soon: Hybrid Experience</h3>
                 </div>
                 <p className="text-gray-700 mb-4">
-                  We're developing a hybrid form that combines the speed of traditional forms 
+                  We&apos;re developing a hybrid form that combines the speed of traditional forms 
                   with the intelligence of our AI conversation system.
                 </p>
                 <Button
