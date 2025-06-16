@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "node scripts/simple-start.js",
-    "start:next": "next start",
+    "start": "next start",
+    "start:with-db": "node scripts/start-app.js",
     "migrate:if-needed": "node scripts/migrate-if-needed.js",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
