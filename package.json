@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "npm run db:migrate && next build",
+    "db:migrate:safe": "drizzle-kit push:pg --verbose",
     "build:app": "next build",
     "start": "next start",
     "lint": "next lint",
