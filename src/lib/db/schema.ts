@@ -1,6 +1,14 @@
 import { pgTable, text, timestamp, integer, boolean, jsonb, uuid, varchar, decimal } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
+// TEST: New table to verify automatic schema sync
+export const drizzleSchemaTest = pgTable('drizzle_schema_test', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  testMessage: varchar('test_message', { length: 255 }).notNull().default('Drizzle can read schema.ts!'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  schemaVersion: varchar('schema_version', { length: 50 }).notNull().default('v2.0'),
+})
+
 // Users and Sessions
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
