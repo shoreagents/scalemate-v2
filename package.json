@@ -16,9 +16,10 @@
     "db:studio": "drizzle-kit studio",
     "db:deploy": "drizzle-kit push:pg --verbose",
     "deploy:railway": "railway up --detach",
-    "postbuild": "npm run db:deploy",
     "db:backup": "node scripts/backup.js",
-    "db:seed": "node scripts/seed.js"
+    "db:seed": "node scripts/seed.js",
+    "build:clean": "rm -rf .next && rm -rf node_modules/.cache && npm run build",
+    "setup:production": "node scripts/setup-production.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.54.0",
