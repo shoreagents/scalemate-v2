@@ -59,7 +59,7 @@ async function setupDatabaseWithDrizzle() {
         });
         
         console.log('📦 Applying migrations...');
-        execSync('npx drizzle-kit migrate:pg', { 
+        execSync('npx drizzle-kit migrate', { 
           stdio: 'inherit',
           timeout: 30000
         });
