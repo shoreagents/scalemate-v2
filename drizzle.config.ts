@@ -1,12 +1,12 @@
 import { defineConfig } from "drizzle-kit";
 
 export default defineConfig({
-  dialect: "postgresql",
   schema: "./src/lib/db/schema.ts",
   out: "./drizzle",
+  driver: "pg",
   dbCredentials: {
-    url: process.env.DATABASE_URL!,
+    connectionString: process.env.DATABASE_URL!,
   },
   verbose: true,
-  strict: false, // Allow auto-execution in CI/CD
+  strict: false,
 }); 
