@@ -14,11 +14,12 @@ if (!process.env.DATABASE_URL) {
 console.log('🗄️  DATABASE_URL found - running database setup...');
 
 try {
-  // Run database migrations using direct drizzle-kit command
+  // Run database migrations using drizzle config
   console.log('📋 Pushing database schema...');
-  execSync('npx drizzle-kit push:pg --schema=./src/lib/db/schema.ts --driver=pg', {
+  execSync('npx drizzle-kit push:pg --config=./drizzle.config.ts', {
     stdio: 'inherit',
-    cwd: process.cwd()
+    cwd: process.cwd(),
+    env: { ...process.env }
   });
   
   console.log('📋 Seeding database...');
