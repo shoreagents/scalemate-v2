@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "postbuild": "npm run db:deploy",
     "start": "next start",
+    "start:railway": "node scripts/startup.js",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "test": "jest",
