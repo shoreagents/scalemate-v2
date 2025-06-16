@@ -48,9 +48,9 @@ async function setupDatabase() {
     console.log('📋 Pushing database schema with drizzle-kit...');
     console.log('🔧 This will create ALL tables defined in your schema.ts file');
     
-    // Method 1: Try with --force flag (recommended for v0.20.18)
-    console.log('🔧 Executing command: npx drizzle-kit push --config=drizzle.config.ts --force');
-    let result = spawnSync('npx', ['drizzle-kit', 'push', '--config=drizzle.config.ts', '--force'], {
+    // Method 1: Try with push:pg and --force flag (correct for v0.20.18)
+    console.log('🔧 Executing command: npx drizzle-kit push:pg --config=drizzle.config.ts --force');
+    let result = spawnSync('npx', ['drizzle-kit', 'push:pg', '--config=drizzle.config.ts', '--force'], {
       stdio: 'inherit',
       env: process.env,
       timeout: 60000,
@@ -58,33 +58,16 @@ async function setupDatabase() {
     });
 
     if (result.status === 0) {
-      console.log('✅ Database schema pushed successfully with --force flag!');
+      console.log('✅ Database schema pushed successfully with push:pg and --force flag!');
       console.log('🎉 ALL tables from schema.ts have been created');
       return;
     }
 
-    console.log('⚠️ Force flag approach failed, trying modern syntax...');
+    console.log('⚠️ Force flag approach failed, trying without force flag...');
     
-    // Method 2: Try new syntax with force flag
-    console.log('🔧 Trying modern syntax: npx drizzle-kit push --force');
-    result = spawnSync('npx', ['drizzle-kit', 'push', '--force'], {
-      stdio: 'inherit',
-      env: process.env,
-      timeout: 60000,
-      encoding: 'utf8'
-    });
-
-    if (result.status === 0) {
-      console.log('✅ Database schema pushed successfully with modern syntax!');
-      console.log('🎉 ALL tables from schema.ts have been created');
-      return;
-    }
-
-    console.log('⚠️ Modern syntax failed, trying stdin input method...');
-    
-    // Method 3: Use stdin to automatically confirm
-    console.log('🔧 Trying with automatic confirmation via stdin...');
-    const child = spawn('npx', ['drizzle-kit', 'push', '--config=drizzle.config.ts'], {
+    // Method 2: Try push:pg without force flag but with stdin input
+    console.log('🔧 Trying push:pg with stdin confirmation: npx drizzle-kit push:pg --config=drizzle.config.ts');
+    const child = spawn('npx', ['drizzle-kit', 'push:pg', '--config=drizzle.config.ts'], {
       stdio: ['pipe', 'inherit', 'inherit'],
       env: process.env
     });
@@ -108,10 +91,16 @@ async function setupDatabase() {
     });
 
     if (stdinResult === 0) {
-      console.log('✅ Database schema pushed successfully with stdin confirmation!');
+      console.log('✅ Database schema pushed successfully with push:pg and stdin confirmation!');
       console.log('🎉 ALL tables from schema.ts have been created');
       return;
     }
+
+    console.log('⚠️ Push:pg approach failed, trying generate + migrate approach...');
+    
+    // Method 3: Try generate migrations first, then apply them
+    console.log('🔧 Trying migration approach: generate then migrate...');
+    await generateAndMigrate();
 
     console.log('⚠️ All drizzle-kit approaches failed, falling back to programmatic approach...');
     
@@ -134,6 +123,35 @@ async function testDatabaseConnection() {
     await client.end();
   } catch (error) {
     throw new Error(`Database connection failed: ${error.message}`);
+  }
+}
+
+async function generateAndMigrate() {
+  try {
+    console.log('🔧 Generating migrations from schema...');
+    
+    // Generate migrations first
+    let result = spawnSync('npx', ['drizzle-kit', 'generate:pg', '--config=drizzle.config.ts'], {
+      stdio: 'inherit',
+      env: process.env,
+      timeout: 30000,
+      encoding: 'utf8'
+    });
+
+    if (result.status === 0) {
+      console.log('✅ Migrations generated successfully!');
+      
+      // Now apply the migrations
+      console.log('🔧 Applying generated migrations...');
+      await runProgrammaticMigration();
+    } else {
+      console.log('⚠️ Migration generation failed, falling back to programmatic approach...');
+      await runProgrammaticMigration();
+    }
+    
+  } catch (error) {
+    console.error('❌ Generate and migrate failed:', error.message);
+    await runProgrammaticMigration();
   }
 }
 
@@ -179,7 +197,7 @@ async function runProgrammaticMigration() {
   } catch (error) {
     console.error('❌ Programmatic migration failed:', error.message);
     console.log('🚀 App will continue - tables may need to be created manually');
-    console.log('💡 Try running: npx drizzle-kit push --force locally first');
+    console.log('💡 Try running: npx drizzle-kit push:pg --config=drizzle.config.ts locally first');
   }
 }
 
