@@ -15,13 +15,28 @@ export async function GET() {
     
     try {
       // Check if main tables exist (graceful check for initial deployment)
-      await db.execute(sql`SELECT COUNT(*) FROM users LIMIT 1`)
-      tablesExist = true
-      dbSetupMessage = 'Database fully configured'
+      // Use a less noisy query that checks table existence
+      const result = await db.execute(sql`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'users'
+        ) as table_exists
+      `)
+      
+      tablesExist = result[0]?.table_exists === true
+      
+      if (tablesExist) {
+        // Only query the actual table if we know it exists
+        await db.execute(sql`SELECT COUNT(*) FROM users LIMIT 1`)
+        dbSetupMessage = 'Database fully configured'
+      } else {
+        dbSetupMessage = 'Database connected, schema setup in progress'
+      }
     } catch (tableError) {
-      // Tables don't exist yet - this is OK for initial deployment
+      // Fallback error handling
       if (tableError instanceof Error && tableError.message.includes('does not exist')) {
-        dbSetupMessage = 'Database connected, tables need setup. Run: node scripts/setup-production.js'
+        dbSetupMessage = 'Database connected, tables need setup'
       } else {
         throw tableError
       }

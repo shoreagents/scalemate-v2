@@ -39,6 +39,7 @@ if (!drizzleKitPath) {
 try {
   console.log(`📋 Found drizzle-kit at: ${drizzleKitPath}`);
   console.log('📋 Pushing database schema...');
+  console.log(`🔧 Using DATABASE_URL: ${process.env.DATABASE_URL ? 'Found' : 'Missing'}`);
   
   execSync(`${drizzleKitPath} push:pg`, {
     stdio: 'inherit',
@@ -46,7 +47,9 @@ try {
     env: { ...process.env }
   });
   
+  console.log('✅ Schema push completed successfully');
   console.log('📋 Seeding database...');
+  
   execSync('node scripts/seed.js', {
     stdio: 'inherit',
     cwd: process.cwd()
@@ -56,4 +59,10 @@ try {
 } catch (error) {
   console.log('⚠️  Database setup failed - app will continue without database features');
   console.error('Setup error:', error.message);
+  if (error.stdout) {
+    console.error('stdout:', error.stdout.toString());
+  }
+  if (error.stderr) {
+    console.error('stderr:', error.stderr.toString());
+  }
 } 

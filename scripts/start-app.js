@@ -5,16 +5,21 @@ const { existsSync } = require('fs');
 
 console.log('🚀 Starting ScaleMate application...');
 
-// First, try to run database setup
+// First, try to run database setup and wait for completion
 try {
   console.log('🔍 Running database setup...');
   execSync('node scripts/db-setup.js', {
     stdio: 'inherit',
     cwd: process.cwd()
   });
+  console.log('✅ Database setup completed successfully');
 } catch (error) {
-  console.log('⚠️  Database setup skipped:', error.message);
+  console.log('⚠️  Database setup failed, continuing anyway:', error.message);
 }
+
+// Wait a moment for database to be ready
+console.log('⏳ Waiting for database to be ready...');
+await new Promise(resolve => setTimeout(resolve, 2000));
 
 // Now try to start Next.js using different approaches
 const nextStartMethods = [
