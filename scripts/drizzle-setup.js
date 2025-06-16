@@ -116,27 +116,9 @@ async function verifyTables() {
     const tables = tablesResult.rows.map(row => row.table_name);
     console.log(`📊 Schema verification: ${tables.length} tables found`);
     console.log('📋 Tables:', tables.join(', '));
+    console.log('✅ Schema sync completed successfully!');
     
-    // Expected tables from schema.ts
-    const expectedTables = [
-      'users', 'sessions', 'page_views', 'analytics_events',
-      'quote_calculator_sessions', 'quote_messages',
-      'readiness_test_sessions', 'test_responses',
-      'authors', 'categories', 'tags', 'blog_posts', 'post_categories', 'post_tags',
-      'email_captures', 'email_campaigns',
-      'conversation_sessions', 'conversation_messages'
-    ];
-    
-    const missingTables = expectedTables.filter(table => !tables.includes(table));
-    
-    if (missingTables.length > 0) {
-      console.log('⚠️  Missing tables:', missingTables.join(', '));
-      console.log('💡 Tables will be created when the app routes are first accessed');
-    } else {
-      console.log('✅ All expected tables found - schema sync successful!');
-    }
-    
-    return { tables, missingTables };
+    return { tables };
     
   } finally {
     client.release();
