@@ -1,10 +1,10 @@
-// Use regular export to avoid drizzle-kit import at runtime
+// Drizzle config for v0.20.18
 export default {
-  dialect: 'postgresql',
   schema: './src/lib/db/schema.ts',
   out: './drizzle',
+  driver: 'pg',
   dbCredentials: {
-    url: process.env.DATABASE_URL || '',
+    connectionString: process.env.DATABASE_URL || '',
   },
   verbose: true,
   strict: true,
