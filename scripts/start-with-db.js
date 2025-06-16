@@ -5,17 +5,25 @@ const { execSync, spawn } = require('child_process');
 console.log('🚀 Starting ScaleMate with database setup...');
 
 async function setupDatabaseAndStart() {
+  // Try database setup but don't fail if it doesn't work
   try {
-    // Run database setup first
-    console.log('🔍 Running database setup...');
+    console.log('🔍 Attempting database setup...');
     execSync('node scripts/db-setup.js', {
       stdio: 'inherit',
-      env: process.env
+      env: process.env,
+      timeout: 120000 // 2 minute total timeout
     });
-    console.log('✅ Database setup completed');
-    
-    // Start the Next.js application
-    console.log('🌐 Starting Next.js application...');
+    console.log('✅ Database setup completed successfully');
+  } catch (error) {
+    console.log('⚠️  Database setup had issues, but continuing...');
+    console.log('🔧 Error:', error.message);
+    console.log('📋 The application will start and health check will show database status');
+  }
+  
+  // Always start the Next.js application
+  console.log('🌐 Starting Next.js application...');
+  
+  try {
     const app = spawn('npm', ['start'], {
       stdio: 'inherit',
       env: process.env
@@ -37,8 +45,13 @@ async function setupDatabaseAndStart() {
       process.exit(code);
     });
     
+    app.on('error', (error) => {
+      console.error('❌ Application startup failed:', error.message);
+      process.exit(1);
+    });
+    
   } catch (error) {
-    console.error('❌ Startup failed:', error.message);
+    console.error('❌ Failed to start Next.js application:', error.message);
     process.exit(1);
   }
 }
