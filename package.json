@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "postbuild": "npm run db:deploy",
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
@@ -14,7 +15,7 @@
     "db:generate": "drizzle-kit generate:pg",
     "db:migrate": "drizzle-kit push:pg",
     "db:studio": "drizzle-kit studio",
-    "db:deploy": "drizzle-kit push:pg --verbose",
+    "db:deploy": "drizzle-kit push:pg --verbose && npm run db:seed",
     "deploy:railway": "railway up --detach",
     "db:backup": "node scripts/backup.js",
     "db:seed": "node scripts/seed.js",

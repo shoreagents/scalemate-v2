@@ -6,21 +6,37 @@ export async function GET() {
   try {
     const startTime = Date.now()
     
-    // Test database connection
+    // Test basic database connection
     await db.execute(sql`SELECT 1 as health_check`)
-    
     const responseTime = Date.now() - startTime
     
-    // Test table existence by checking a key table
-    await db.execute(sql`SELECT COUNT(*) FROM users LIMIT 1`)
+    let tablesExist = false
+    let dbSetupMessage = ''
     
+    try {
+      // Check if main tables exist (graceful check for initial deployment)
+      await db.execute(sql`SELECT COUNT(*) FROM users LIMIT 1`)
+      tablesExist = true
+      dbSetupMessage = 'Database fully configured'
+    } catch (tableError) {
+      // Tables don't exist yet - this is OK for initial deployment
+      if (tableError instanceof Error && tableError.message.includes('does not exist')) {
+        dbSetupMessage = 'Database connected, tables need setup. Run: node scripts/setup-production.js'
+      } else {
+        throw tableError
+      }
+    }
+    
+    // Return healthy if database is connected, even if tables need setup
     return NextResponse.json({
-      status: 'healthy',
+      status: tablesExist ? 'healthy' : 'setup_required',
       timestamp: new Date().toISOString(),
       services: {
         database: {
           status: 'connected',
-          responseTime: `${responseTime}ms`
+          responseTime: `${responseTime}ms`,
+          tablesExist,
+          message: dbSetupMessage
         },
         application: {
           status: 'running',
@@ -28,7 +44,8 @@ export async function GET() {
         }
       },
       version: '2.0.0'
-    })
+    }, { status: tablesExist ? 200 : 202 }) // 202 = Accepted (setup required)
+    
   } catch (error) {
     console.error('Health check failed:', error)
     
