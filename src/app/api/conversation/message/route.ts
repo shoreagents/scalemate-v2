@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { ConversationEngine } from '@/lib/ai/conversation-engine'
-import { qdrantService } from '@/lib/ai/qdrant-service'
+// import { qdrantService } from '@/lib/ai/qdrant-service'
 
 const messageSchema = z.object({
   sessionId: z.string(),
@@ -13,12 +13,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { sessionId, message } = messageSchema.parse(body)
 
-    // Initialize Qdrant service if needed
-    try {
-      await qdrantService.initialize()
-    } catch (error) {
-      console.warn('Qdrant initialization failed, continuing without vector search:', error)
-    }
+    // Initialize Qdrant service if needed - temporarily disabled for build
+    // try {
+    //   await qdrantService.initialize()
+    // } catch (error) {
+    //   console.warn('Qdrant initialization failed, continuing without vector search:', error)
+    // }
 
     // Create conversation engine instance
     const conversationEngine = new ConversationEngine()

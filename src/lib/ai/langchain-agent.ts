@@ -33,34 +33,48 @@ export interface AgentResponse {
 }
 
 export class LangChainConversationAgent {
-  private openaiChat: ChatOpenAI
-  private claudeChat: ChatAnthropic
-  private memory: ConversationSummaryBufferMemory
+  private openaiChat: ChatOpenAI | null = null
+  private claudeChat: ChatAnthropic | null = null
+  private memory: ConversationSummaryBufferMemory | null = null
   private conversationChain: ConversationChain | null = null
 
   constructor() {
-    // Initialize OpenAI for general conversation and embeddings
-    this.openaiChat = new ChatOpenAI({
-      openAIApiKey: process.env.OPENAI_API_KEY!,
-      modelName: 'gpt-4-turbo-preview',
-      temperature: 0.7,
-      maxTokens: 2000,
-    })
+    // Lazy initialization to avoid build-time issues
+  }
 
-    // Initialize Claude for advanced reasoning and analysis
-    this.claudeChat = new ChatAnthropic({
-      anthropicApiKey: process.env.ANTHROPIC_API_KEY!,
-      modelName: 'claude-3-5-sonnet-20241022',
-      temperature: 0.3,
-      maxTokens: 4000,
-    })
+  private getOpenAIChat(): ChatOpenAI {
+    if (!this.openaiChat) {
+      this.openaiChat = new ChatOpenAI({
+        openAIApiKey: process.env.OPENAI_API_KEY!,
+        modelName: 'gpt-4-turbo-preview',
+        temperature: 0.7,
+        maxTokens: 2000,
+      })
+    }
+    return this.openaiChat
+  }
 
-    // Initialize memory with summary capability
-    this.memory = new ConversationSummaryBufferMemory({
-      llm: this.openaiChat,
-      maxTokenLimit: 2000,
-      returnMessages: true,
-    })
+  private getClaudeChat(): ChatAnthropic {
+    if (!this.claudeChat) {
+      this.claudeChat = new ChatAnthropic({
+        anthropicApiKey: process.env.ANTHROPIC_API_KEY!,
+        modelName: 'claude-3-5-sonnet-20241022',
+        temperature: 0.3,
+        maxTokens: 4000,
+      })
+    }
+    return this.claudeChat
+  }
+
+  private getMemory(): ConversationSummaryBufferMemory {
+    if (!this.memory) {
+      this.memory = new ConversationSummaryBufferMemory({
+        llm: this.getOpenAIChat(),
+        maxTokenLimit: 2000,
+        returnMessages: true,
+      })
+    }
+    return this.memory
   }
 
   async initializeSession(sessionId: string): Promise<void> {
@@ -102,8 +116,8 @@ export class LangChainConversationAgent {
       // await this.storeConversationInVector(sessionId, userMessage, response, context)
 
       // Update memory
-      await this.memory.chatMemory.addUserMessage(userMessage)
-      await this.memory.chatMemory.addAIMessage(response.message)
+      await this.getMemory().chatMemory.addUserMessage(userMessage)
+      await this.getMemory().chatMemory.addAIMessage(response.message)
 
       console.log(`✅ LangChain processing complete`)
       return response
@@ -170,7 +184,7 @@ export class LangChainConversationAgent {
 
     const chain = RunnableSequence.from([
       prompt,
-      this.claudeChat,
+      this.getClaudeChat(),
       new StringOutputParser(),
     ])
 
@@ -203,7 +217,7 @@ export class LangChainConversationAgent {
 
     const chain = RunnableSequence.from([
       prompt,
-      this.openaiChat,
+      this.getOpenAIChat(),
       new StringOutputParser(),
     ])
 

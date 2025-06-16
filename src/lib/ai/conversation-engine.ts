@@ -6,7 +6,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { db } from '@/lib/db'
 import { conversationSessions, conversationMessages, conversationMemory, conversationEmbeddings, conversationAnalytics } from '@/lib/db/schema'
 import { eq, desc } from 'drizzle-orm'
-import { generateEmbedding } from './embeddings'
+// import { generateEmbedding } from './embeddings'
 import { v4 as uuidv4 } from 'uuid'
 
 // Lazy initialization to avoid build-time issues
@@ -385,15 +385,17 @@ Return only valid JSON with extracted values. If information isn't present, omit
     phase: string
   ): Promise<void> {
     try {
-      const embedding = await generateEmbedding(content)
+      // Temporarily disabled for build - embeddings will be generated later
+      console.log('Embedding generation temporarily disabled during build')
+      // const embedding = await generateEmbedding(content)
       
-      await db.insert(conversationEmbeddings).values({
-        sessionId,
-        content,
-        embedding: JSON.stringify(embedding),
-        category: phase,
-        tags: { phase, timestamp: new Date().toISOString() }
-      })
+      // await db.insert(conversationEmbeddings).values({
+      //   sessionId,
+      //   content,
+      //   embedding: JSON.stringify(embedding),
+      //   category: phase,
+      //   tags: { phase, timestamp: new Date().toISOString() }
+      // })
     } catch (error) {
       console.error('Failed to generate embedding:', error)
     }

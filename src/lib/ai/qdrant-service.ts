@@ -25,7 +25,7 @@ export interface SimilarityResult {
 
 export class QdrantService {
   private client: QdrantClient
-  private embeddings: OpenAIEmbeddings
+  private embeddings: OpenAIEmbeddings | null = null
   private vectorStore: QdrantVectorStore | null = null
   private readonly COLLECTION_NAME = 'scalemate_conversations'
   private readonly VECTOR_SIZE = 1536 // OpenAI text-embedding-3-small
@@ -35,12 +35,17 @@ export class QdrantService {
       url: process.env.QDRANT_URL || 'http://localhost:6333',
       apiKey: process.env.QDRANT_API_KEY,
     })
+  }
 
-    this.embeddings = new OpenAIEmbeddings({
-      openAIApiKey: process.env.OPENAI_API_KEY!,
-      modelName: 'text-embedding-3-small',
-      dimensions: this.VECTOR_SIZE,
-    })
+  private getEmbeddings(): OpenAIEmbeddings {
+    if (!this.embeddings) {
+      this.embeddings = new OpenAIEmbeddings({
+        openAIApiKey: process.env.OPENAI_API_KEY!,
+        modelName: 'text-embedding-3-small',
+        dimensions: this.VECTOR_SIZE,
+      })
+    }
+    return this.embeddings
   }
 
   async initialize(): Promise<void> {
@@ -57,7 +62,7 @@ export class QdrantService {
 
       // Initialize vector store
       this.vectorStore = await QdrantVectorStore.fromExistingCollection(
-        this.embeddings,
+        this.getEmbeddings(),
         {
           client: this.client,
           collectionName: this.COLLECTION_NAME,

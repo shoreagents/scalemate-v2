@@ -14,7 +14,8 @@
     "production": {
       "variables": {
         "NODE_ENV": "production",
-        "OPENAI_API_KEY": "sk-8yjr1s5TPjv2FOb0F4Xe8SF1tpbpCCEK5TeEwxXq5pT3BlbkFJ8CVOQYARVVzA0d5ckP1Xg_sasM9ls7MEL7bRBESmkA"
+        "OPENAI_API_KEY": "sk-8yjr1s5TPjv2FOb0F4Xe8SF1tpbpCCEK5TeEwxXq5pT3BlbkFJ8CVOQYARVVzA0d5ckP1Xg_sasM9ls7MEL7bRBESmkA",
+        "ANTHROPIC_API_KEY": "sk-8yjr1s5TPjv2FOb0F4Xe8SF1tpbpCCEK5TeEwxXq5pT3BlbkFJ8CVOQYARVVzA0d5ckP1Xg_sasM9ls7MEL7bRBESmkA"
       }
     }
   }

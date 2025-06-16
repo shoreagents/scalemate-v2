@@ -3,9 +3,17 @@ import { db } from '@/lib/db'
 import { conversationEmbeddings } from '@/lib/db/schema'
 import { eq, sql } from 'drizzle-orm'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-})
+// Lazy initialization to avoid build-time issues
+let openai: OpenAI | null = null
+
+function getOpenAI(): OpenAI {
+  if (!openai) {
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY!,
+    })
+  }
+  return openai
+}
 
 export interface EmbeddingResult {
   content: string
@@ -30,7 +38,7 @@ export class EmbeddingService {
 
   async generateEmbedding(text: string): Promise<number[]> {
     try {
-      const response = await openai.embeddings.create({
+      const response = await getOpenAI().embeddings.create({
         model: this.MODEL,
         input: text,
         dimensions: this.DIMENSIONS
