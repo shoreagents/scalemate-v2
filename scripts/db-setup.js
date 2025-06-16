@@ -1,12 +1,11 @@
+const { execSync } = require('child_process');
 const { Pool } = require('pg');
-const { drizzle } = require('drizzle-orm/node-postgres');
-const { migrate } = require('drizzle-orm/node-postgres/migrator');
 
 async function setupDatabaseWithDrizzle() {
   if (!process.env.DATABASE_URL) {
     throw new Error('DATABASE_URL not found');
   }
-
+  
   try {
     console.log('🔌 Testing database connection...');
     const pool = new Pool({
@@ -16,115 +15,115 @@ async function setupDatabaseWithDrizzle() {
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 10000,
     });
-
+    
     const client = await pool.connect();
     console.log('✅ Database connection successful');
     const result = await client.query('SELECT NOW()');
     console.log('📅 Database time:', result.rows[0].now);
     client.release();
-
+    await pool.end();
+    
     // Create UUID extension first
     await ensureUuidExtension();
-
-    // Use Drizzle's programmatic migration approach
-    console.log('🔧 Starting programmatic schema sync...');
-    console.log('📝 This will use Drizzle ORM to sync your schema.ts directly');
+    
+    // Try TypeScript compilation first to ensure schema is readable
+    console.log('🔧 Checking TypeScript compilation...');
+    try {
+      execSync('npx tsc --noEmit --skipLibCheck src/lib/db/schema.ts', {
+        stdio: 'pipe',
+        timeout: 15000,
+        env: { ...process.env }
+      });
+      console.log('✅ TypeScript schema validation passed');
+    } catch (tscError) {
+      console.log('⚠️  TypeScript validation issues, proceeding anyway...');
+    }
+    
+    // Run Drizzle push to sync schema
+    console.log('🔧 Running Drizzle schema sync...');
+    console.log('📝 This will read your schema.ts file and sync all tables');
+    
+    let drizzleSuccess = false;
     
     try {
-      // Initialize Drizzle with the pool
-      const db = drizzle(pool);
-      
-      // Use push-style migration by comparing schema
-      await syncSchemaWithDatabase(pool);
-      
-      console.log('✅ Schema sync completed successfully');
+      execSync('npx drizzle-kit push:pg --verbose', {
+        stdio: 'inherit',
+        timeout: 60000,
+        env: {
+          ...process.env,
+          DATABASE_URL: process.env.DATABASE_URL,
+          NODE_OPTIONS: '--max-old-space-size=2048'
+        }
+      });
+      console.log('✅ Drizzle push completed successfully');
+      drizzleSuccess = true;
       
       // Verify schema was applied
       await verifyTables();
-    } catch (syncError) {
-      console.log('⚠️  Schema sync had issues:', syncError.message);
-      console.log('🔍 Checking current database state...');
+    } catch (pushError) {
+      console.log('⚠️  Drizzle push failed:', pushError.message);
+      console.log('🔄 Trying generate + migrate approach...');
+      
+      try {
+        console.log('📝 Generating migration files...');
+        execSync('npx drizzle-kit generate:pg --verbose', {
+          stdio: 'inherit',
+          timeout: 45000,
+          env: {
+            ...process.env,
+            NODE_OPTIONS: '--max-old-space-size=2048'
+          }
+        });
+        
+        console.log('📦 Applying migrations...');
+        execSync('npx drizzle-kit migrate:pg --verbose', {
+          stdio: 'inherit',
+          timeout: 45000,
+          env: {
+            ...process.env,
+            DATABASE_URL: process.env.DATABASE_URL
+          }
+        });
+        
+        console.log('✅ Migration approach successful');
+        drizzleSuccess = true;
+        await verifyTables();
+      } catch (migrateError) {
+        console.log('❌ Migration failed:', migrateError.message);
+        console.log('🔄 Falling back to direct table creation...');
+        drizzleSuccess = false;
+      }
+    }
+    
+    // If drizzle-kit failed, create tables directly
+    if (!drizzleSuccess) {
+      console.log('🛠️  Creating tables directly from schema definition...');
+      await createAllTablesDirectly();
       await verifyTables();
     }
-
-    await pool.end();
+    
   } catch (error) {
     console.error('❌ Database setup error:', error.message);
     throw error;
   }
 }
 
-async function syncSchemaWithDatabase(pool) {
+async function createAllTablesDirectly() {
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  });
+  
   const client = await pool.connect();
-  
   try {
-    console.log('🔄 Syncing schema with database...');
+    console.log('📝 Creating all 35 tables directly...');
     
-    // Import the schema dynamically
-    const schema = require('../src/lib/db/schema.ts');
-    
-    // Get all table definitions from schema
-    const tables = Object.keys(schema).filter(key => 
-      schema[key] && 
-      typeof schema[key] === 'object' && 
-      schema[key]._.name && 
-      schema[key]._.columns
-    );
-    
-    console.log(`📋 Found ${tables.length} table definitions in schema`);
-    
-    // Check existing tables
-    const existingTablesResult = await client.query(`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
-    `);
-    
-    const existingTables = existingTablesResult.rows.map(row => row.table_name);
-    console.log(`📊 Current database has ${existingTables.length} tables`);
-    
-    // Use Drizzle's built-in schema introspection and diffing
-    const { drizzle } = require('drizzle-orm/node-postgres');
-    const db = drizzle(client, { schema });
-    
-    // This approach uses Drizzle's internal schema comparison
-    console.log('🔍 Comparing schema with database...');
-    
-    // For each table in schema, ensure it exists
-    for (const tableName of tables) {
-      const table = schema[tableName];
-      if (table && table._.name) {
-        const dbTableName = table._.name;
-        
-        if (!existingTables.includes(dbTableName)) {
-          console.log(`➕ Table ${dbTableName} needs to be created`);
-        } else {
-          console.log(`✅ Table ${dbTableName} already exists`);
-        }
-      }
-    }
-    
-    // Use a more direct approach - execute the schema creation SQL
-    console.log('🔧 Applying schema changes...');
-    
-    // Import and execute the complete schema
-    await createMissingTablesFromSchema(client);
-    
-  } finally {
-    client.release();
-  }
-}
-
-async function createMissingTablesFromSchema(client) {
-  console.log('📝 Creating missing tables from schema...');
-  
-  // This approach reads the actual schema.ts file and creates tables
-  try {
-    // Execute a comprehensive CREATE TABLE script based on your schema
+    // Execute comprehensive CREATE TABLE script
     const schemaSql = `
-      -- Create all tables that don't exist yet
+      -- ========================================
+      -- LEVEL 1: ANONYMOUS USER TRACKING
+      -- ========================================
       
-      -- Level 1: Anonymous User Tracking
       CREATE TABLE IF NOT EXISTS "anonymous_sessions" (
         "session_id" varchar(255) PRIMARY KEY NOT NULL,
         "ip_address" varchar(45),
@@ -154,7 +153,10 @@ async function createMissingTablesFromSchema(client) {
         "duration" integer
       );
 
-      -- Level 2: Core User Management
+      -- ========================================
+      -- LEVEL 2: CORE USER MANAGEMENT
+      -- ========================================
+
       CREATE TABLE IF NOT EXISTS "users" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
         "email" varchar(255),
@@ -214,7 +216,10 @@ async function createMissingTablesFromSchema(client) {
         "time_on_page" integer
       );
 
-      -- Level 3: Advanced Tables
+      -- ========================================
+      -- LEVEL 3: ADVANCED CONFIGURATION
+      -- ========================================
+
       CREATE TABLE IF NOT EXISTS "tool_configurations" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
         "tool_name" varchar(100) NOT NULL,
@@ -285,6 +290,10 @@ async function createMissingTablesFromSchema(client) {
         "converted_at" timestamp,
         "created_at" timestamp DEFAULT now() NOT NULL
       );
+
+      -- ========================================
+      -- LEVEL 4: LEAD MANAGEMENT
+      -- ========================================
 
       CREATE TABLE IF NOT EXISTS "leads" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
@@ -360,6 +369,10 @@ async function createMissingTablesFromSchema(client) {
         "created_at" timestamp DEFAULT now() NOT NULL
       );
 
+      -- ========================================
+      -- LEVEL 5: ANALYTICS & TRACKING
+      -- ========================================
+
       CREATE TABLE IF NOT EXISTS "analytics_events" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
         "session_id" varchar(255) NOT NULL,
@@ -411,6 +424,10 @@ async function createMissingTablesFromSchema(client) {
         "category" varchar(50) NOT NULL,
         "timestamp" timestamp DEFAULT now() NOT NULL
       );
+
+      -- ========================================
+      -- LEVEL 6: BLOG & CONTENT
+      -- ========================================
 
       CREATE TABLE IF NOT EXISTS "authors" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
@@ -470,6 +487,10 @@ async function createMissingTablesFromSchema(client) {
         "tag_id" uuid NOT NULL
       );
 
+      -- ========================================
+      -- LEVEL 7: EMAIL & MARKETING
+      -- ========================================
+
       CREATE TABLE IF NOT EXISTS "email_captures" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
         "email" varchar(255) NOT NULL,
@@ -495,6 +516,10 @@ async function createMissingTablesFromSchema(client) {
         "created_at" timestamp DEFAULT now() NOT NULL,
         "updated_at" timestamp DEFAULT now() NOT NULL
       );
+
+      -- ========================================
+      -- LEVEL 8: ADVANCED AI CONVERSATION SYSTEM
+      -- ========================================
 
       CREATE TABLE IF NOT EXISTS "conversation_sessions" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
@@ -624,11 +649,14 @@ async function createMissingTablesFromSchema(client) {
     
     console.log('📋 Executing comprehensive table creation...');
     await client.query(schemaSql);
-    console.log('✅ All tables created successfully!');
+    console.log('✅ All 35 tables created successfully!');
     
   } catch (error) {
-    console.log('⚠️  Schema creation error:', error.message);
+    console.log('⚠️  Direct table creation error:', error.message);
     throw error;
+  } finally {
+    client.release();
+    await pool.end();
   }
 }
 
@@ -669,9 +697,9 @@ async function verifyTables() {
     console.log('📋 Tables:', tables.join(', '));
     
     if (tables.length >= 35) {
-      console.log('✅ All expected tables (35) created successfully!');
+      console.log('✅ All expected tables (35+) created successfully!');
     } else if (tables.length > 0) {
-      console.log(`⚠️  Only ${tables.length} tables found, expected 35`);
+      console.log(`⚠️  Only ${tables.length} tables found, expected 35+`);
     } else {
       console.log('❌ No tables found');
     }
