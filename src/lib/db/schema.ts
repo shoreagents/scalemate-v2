@@ -9,6 +9,9 @@ export const users = pgTable('users', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   preferences: jsonb('preferences'),
+  // TEST: New column added to existing table
+  testNewColumn: varchar('test_new_column', { length: 100 }).default('test_value'),
+  lastLoginAt: timestamp('last_login_at'),
 })
 
 export const sessions = pgTable('sessions', {
