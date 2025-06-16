@@ -34,15 +34,20 @@ async function startApp() {
   console.log('🚀 Starting Next.js application in standalone mode...');
   console.log('🔧 Port configuration:', process.env.PORT || '3000');
   
-  // Set PORT environment variable for Next.js
-  if (!process.env.PORT) {
-    process.env.PORT = '3000';
-  }
+  // Set PORT and HOSTNAME environment variables for Next.js
+  const port = process.env.PORT || '3000';
+  const hostname = '0.0.0.0'; // Bind to all interfaces for Railway
+  
+  console.log(`🌐 Binding to ${hostname}:${port} for Railway access`);
   
   console.log('🔧 Running: node .next/standalone/server.js');
   execSync('node .next/standalone/server.js', { 
     stdio: 'inherit',
-    env: { ...process.env, PORT: process.env.PORT }
+    env: { 
+      ...process.env, 
+      PORT: port,
+      HOSTNAME: hostname
+    }
   });
 }
 
