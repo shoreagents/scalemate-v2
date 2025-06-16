@@ -31,7 +31,7 @@ async function setupDatabaseWithDrizzle() {
     console.log('📝 This will read your schema.ts file and sync all tables');
     
     try {
-      execSync('echo "y" | npx drizzle-kit push', {
+      execSync('echo "y" | npx drizzle-kit push:pg', {
         stdio: 'inherit',
         timeout: 45000,
         shell: true,
@@ -50,7 +50,7 @@ async function setupDatabaseWithDrizzle() {
       
       try {
         console.log('📝 Trying generate + migrate approach...');
-        execSync('npx drizzle-kit generate', {
+        execSync('npx drizzle-kit generate:pg', {
           stdio: 'inherit',
           timeout: 30000,
           env: {
@@ -60,7 +60,7 @@ async function setupDatabaseWithDrizzle() {
         });
         
         console.log('📦 Applying migrations...');
-        execSync('npx drizzle-kit migrate', {
+        execSync('npx drizzle-kit migrate:pg', {
           stdio: 'inherit',
           timeout: 30000,
           env: {
