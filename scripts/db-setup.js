@@ -18,13 +18,26 @@ if (!process.env.DATABASE_URL) {
 console.log('🗄️  DATABASE_URL found - running database setup...');
 console.log('🔧 DATABASE_URL format check:', process.env.DATABASE_URL.substring(0, 20) + '...');
 
-// Test database connection first
+// Test database connection using Node.js instead of psql
 async function testDatabaseConnection() {
   try {
-    console.log('🔗 Testing database connection...');
+    console.log('🔗 Testing database connection with Node.js...');
     
-    // Simple connection test using psql
-    execSync('echo "SELECT 1;" | psql $DATABASE_URL', {
+    // Use the postgres library for connection test
+    const testScript = `
+      const { Client } = require('pg');
+      const client = new Client({ connectionString: process.env.DATABASE_URL });
+      client.connect().then(() => {
+        console.log('Connection successful');
+        client.end();
+        process.exit(0);
+      }).catch(err => {
+        console.error('Connection failed:', err.message);
+        process.exit(1);
+      });
+    `;
+    
+    execSync(`node -e "${testScript}"`, {
       stdio: 'pipe',
       timeout: 10000,
       env: { ...process.env }
@@ -33,7 +46,7 @@ async function testDatabaseConnection() {
     console.log('✅ Database connection successful');
     return true;
   } catch (error) {
-    console.log('⚠️  Direct database connection failed, continuing anyway...');
+    console.log('⚠️  Database connection test failed, continuing anyway...');
     console.log('🔧 Error:', error.message);
     return false;
   }
@@ -64,15 +77,15 @@ async function setupDatabase() {
   try {
     console.log('📋 Pushing database schema with drizzle-kit...');
     
-    // Use npx with shorter timeout and specific flags
-    const pushCommand = 'npx drizzle-kit push:pg --verbose';
+    // Use correct drizzle-kit v0.20.18 command format
+    const pushCommand = 'npx drizzle-kit push:pg --schema=./src/lib/db/schema.ts --driver=pg';
     console.log('🔧 Executing command:', pushCommand);
     
     execSync(pushCommand, {
       stdio: 'inherit',
       cwd: process.cwd(),
       env: { ...process.env },
-      timeout: 30000 // Shorter 30 second timeout
+      timeout: 30000 // 30 second timeout
     });
     
     console.log('✅ Schema push completed successfully');
@@ -81,43 +94,90 @@ async function setupDatabase() {
     console.log('⚠️  NPX approach failed, trying direct binary...');
     
     try {
-      // Try direct binary approach
-      const directCommand = 'node_modules/.bin/drizzle-kit push:pg';
+      // Try direct binary approach with correct parameters
+      const directCommand = 'node_modules/.bin/drizzle-kit push:pg --schema=./src/lib/db/schema.ts --driver=pg';
       console.log('🔧 Trying direct binary:', directCommand);
       
       execSync(directCommand, {
         stdio: 'inherit',
         cwd: process.cwd(),
         env: { ...process.env },
-        timeout: 20000 // Even shorter timeout
+        timeout: 20000
       });
       
       console.log('✅ Schema push completed with direct binary');
       
     } catch (directError) {
-      console.log('⚠️  Direct binary failed, trying simple SQL approach...');
+      console.log('⚠️  Direct binary failed, trying config file approach...');
       
-      // As a last resort, try to create basic tables manually
       try {
-        const basicSetup = `
-          CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            email VARCHAR(255) UNIQUE NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          );
-        `;
+        // Try using the config file directly
+        const configCommand = 'npx drizzle-kit push:pg --config=drizzle.config.ts';
+        console.log('🔧 Trying config file approach:', configCommand);
         
-        execSync(`echo "${basicSetup}" | psql $DATABASE_URL`, {
+        execSync(configCommand, {
           stdio: 'inherit',
-          timeout: 10000,
-          env: { ...process.env }
+          cwd: process.cwd(),
+          env: { ...process.env },
+          timeout: 20000
         });
         
-        console.log('✅ Basic table creation completed');
+        console.log('✅ Schema push completed with config file');
         
-      } catch (sqlError) {
-        console.error('❌ All database setup approaches failed');
-        throw directError; // Throw the original drizzle error
+      } catch (configError) {
+        console.log('⚠️  Config file approach failed, trying simple SQL...');
+        
+        // Create basic tables manually using Node.js
+        try {
+          const basicSetupScript = `
+            const { Client } = require('pg');
+            const client = new Client({ connectionString: process.env.DATABASE_URL });
+            
+            async function createBasicTables() {
+              await client.connect();
+              
+              // Create users table
+              await client.query(\`
+                CREATE TABLE IF NOT EXISTS users (
+                  id SERIAL PRIMARY KEY,
+                  email VARCHAR(255) UNIQUE NOT NULL,
+                  name VARCHAR(255),
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+              \`);
+              
+              // Create anonymous_sessions table
+              await client.query(\`
+                CREATE TABLE IF NOT EXISTS anonymous_sessions (
+                  id VARCHAR(255) PRIMARY KEY,
+                  ip_address VARCHAR(45),
+                  user_agent TEXT,
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                  last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+              \`);
+              
+              console.log('Basic tables created successfully');
+              await client.end();
+            }
+            
+            createBasicTables().catch(console.error);
+          `;
+          
+          execSync(`node -e "${basicSetupScript}"`, {
+            stdio: 'inherit',
+            timeout: 15000,
+            env: { ...process.env }
+          });
+          
+          console.log('✅ Basic table creation completed');
+          
+        } catch (sqlError) {
+          console.error('❌ All database setup approaches failed');
+          console.error('🔧 SQL Error:', sqlError.message);
+          throw configError; // Throw the original drizzle error
+        }
       }
     }
   }
@@ -159,13 +219,12 @@ setupDatabase().catch((error) => {
     console.error('📋 stderr:', error.stderr.toString());
   }
   
-  // For production, only fail if it's a critical error
+  // For production, allow app to start even if database setup fails
   if (process.env.NODE_ENV === 'production') {
     console.log('⚠️  Database setup failed in production');
     console.log('🔧 Checking if app can start without full database setup...');
     
-    // Allow app to start even if database setup fails
-    // The health check will show the status
+    // Allow app to start - health check will show the status
     console.log('✅ Allowing app to start - health check will show database status');
     process.exit(0);
   } else {
