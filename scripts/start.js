@@ -7,6 +7,7 @@ async function runMigrations() {
   console.log('📊 Environment check:');
   console.log('- NODE_ENV:', process.env.NODE_ENV);
   console.log('- DATABASE_URL present:', !!process.env.DATABASE_URL);
+  console.log('- PORT:', process.env.PORT || '3000');
   
   try {
     // Check if DATABASE_URL is available
@@ -31,12 +32,23 @@ async function runMigrations() {
 
 async function startApp() {
   console.log('🚀 Starting Next.js application in standalone mode...');
+  console.log('🔧 Port configuration:', process.env.PORT || '3000');
+  
+  // Set PORT environment variable for Next.js
+  if (!process.env.PORT) {
+    process.env.PORT = '3000';
+  }
+  
   console.log('🔧 Running: node .next/standalone/server.js');
-  execSync('node .next/standalone/server.js', { stdio: 'inherit' });
+  execSync('node .next/standalone/server.js', { 
+    stdio: 'inherit',
+    env: { ...process.env, PORT: process.env.PORT }
+  });
 }
 
 async function main() {
   console.log('🎯 ScaleMate startup sequence initiated');
+  console.log('🌐 Railway environment detected');
   await runMigrations();
   await startApp();
 }
