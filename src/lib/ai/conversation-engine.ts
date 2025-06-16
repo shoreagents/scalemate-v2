@@ -9,9 +9,17 @@ import { eq, desc } from 'drizzle-orm'
 import { generateEmbedding } from './embeddings'
 import { v4 as uuidv4 } from 'uuid'
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!,
-})
+// Lazy initialization to avoid build-time issues
+let anthropic: Anthropic | null = null
+
+function getAnthropic(): Anthropic {
+  if (!anthropic) {
+    anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY!,
+    })
+  }
+  return anthropic
+}
 
 export interface ConversationPhase {
   name: string
@@ -133,11 +141,7 @@ export class ConversationEngine {
 
     try {
       // Use Anthropic directly for now
-      const anthropic = new Anthropic({
-        apiKey: process.env.ANTHROPIC_API_KEY!,
-      })
-
-      const response = await anthropic.messages.create({
+      const response = await getAnthropic().messages.create({
         model: 'claude-3-5-sonnet-20241022',
         max_tokens: 1000,
         temperature: 0.7,
@@ -205,7 +209,7 @@ Let's begin! Tell me about your business - what industry are you in and what doe
     const currentPhase = CONVERSATION_PHASES[session.phase]
     const systemPrompt = this.buildSystemPrompt(currentPhase, context, session)
 
-    const response = await anthropic.messages.create({
+    const response = await getAnthropic().messages.create({
       model: 'claude-3-5-sonnet-20241022',
       max_tokens: 1000,
       temperature: 0.7,
@@ -277,7 +281,7 @@ ${CONVERSATION_PHASES[phase].extractionTargets.map(target => `- ${target}`).join
 
 Return only valid JSON with extracted values. If information isn't present, omit the field.`
 
-    const response = await anthropic.messages.create({
+    const response = await getAnthropic().messages.create({
       model: 'claude-3-5-sonnet-20241022',
       max_tokens: 500,
       temperature: 0.1,
