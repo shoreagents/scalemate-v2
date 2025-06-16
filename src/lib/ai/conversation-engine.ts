@@ -333,17 +333,16 @@ Return only valid JSON with extracted values. If information isn't present, omit
   }
 
   private async buildConversationContext(session: any): Promise<any> {
-    // For now, return basic context without memory manager
-    // TODO: Implement memory manager integration
+    const memory = await this.memoryManager.getMemory(session.id)
     
     return {
       sessionId: session.id,
       phase: session.phase,
       step: session.currentStep,
-      businessContext: {},
-      roleRequirements: {},
-      qualificationData: {},
-      previousInsights: {},
+      businessContext: memory.businessContext || {},
+      roleRequirements: memory.roleRequirements || {},
+      qualificationData: memory.qualificationData || {},
+      previousInsights: memory.previousInsights || {},
       conversationHistory: session.messages?.slice(0, 5) || []
     }
   }
@@ -359,8 +358,18 @@ Return only valid JSON with extracted values. If information isn't present, omit
     confidence?: number,
     processingTime?: number
   ): Promise<void> {
-    // TODO: Implement database message saving
-    console.log(`💾 Saving message for session ${sessionId}: ${content.slice(0, 50)}...`)
+    await db.insert(conversationMessages).values({
+      sessionId,
+      role,
+      content,
+      phase,
+      step,
+      messageType,
+      extractedData,
+      confidence,
+      processingTime,
+      tokenCount: content.length / 4 // Rough estimate
+    })
   }
 
   private async generateAndStoreEmbedding(
@@ -408,23 +417,58 @@ Return only valid JSON with extracted values. If information isn't present, omit
     eventType: string,
     eventData: any
   ): Promise<void> {
-    // TODO: Implement analytics tracking
-    console.log(`📊 Tracking event for session ${sessionId}: ${eventType}`)
+    await db.insert(conversationAnalytics).values({
+      sessionId,
+      eventType,
+      eventData,
+      timestamp: new Date()
+    })
   }
 
   // Helper methods for LangChain agent context
   private async getBusinessContext(sessionId: string): Promise<string> {
-    // TODO: Implement business context retrieval
-    return "Business context placeholder"
+    const memories = await db.query.conversationMemory.findMany({
+      where: eq(conversationMemory.sessionId, sessionId)
+    })
+
+    const businessMemories = memories.filter(m => 
+      m.category === 'business' || m.category === 'insights'
+    )
+
+    return businessMemories
+      .map(m => m.content)
+      .join(' ')
+      .slice(0, 1000) // Limit context size
   }
 
   private async getRoleRequirements(sessionId: string): Promise<string[]> {
-    // TODO: Implement role requirements retrieval
-    return ["Role requirements placeholder"]
+    const memories = await db.query.conversationMemory.findMany({
+      where: eq(conversationMemory.sessionId, sessionId)
+    })
+
+    const roleMemories = memories.filter(m => m.category === 'role')
+    
+    return roleMemories.map(m => m.content)
   }
 
   private async getQualificationCriteria(sessionId: string): Promise<Record<string, any>> {
-    // TODO: Implement qualification criteria retrieval
-    return {}
+    const memories = await db.query.conversationMemory.findMany({
+      where: eq(conversationMemory.sessionId, sessionId)
+    })
+
+    const qualificationMemories = memories.filter(m => m.category === 'qualification')
+    
+    const criteria: Record<string, any> = {}
+    for (const memory of qualificationMemories) {
+      try {
+        const parsed = JSON.parse(memory.content)
+        Object.assign(criteria, parsed)
+      } catch {
+        // If not JSON, treat as text
+        criteria[memory.id] = memory.content
+      }
+    }
+
+    return criteria
   }
 } 

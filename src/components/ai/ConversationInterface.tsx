@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/ButtonComponent'
 import { useToast } from '@/hooks/use-toast'
@@ -79,7 +79,6 @@ export function ConversationInterface({
   // Initialize conversation
   useEffect(() => {
     initializeConversation()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Auto-scroll to bottom

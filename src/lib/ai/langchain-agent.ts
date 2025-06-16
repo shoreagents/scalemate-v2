@@ -1,8 +1,7 @@
 import { ChatOpenAI } from '@langchain/openai'
 import { ChatAnthropic } from '@langchain/anthropic'
 import { ConversationChain } from 'langchain/chains'
-// Temporarily disabled for build
-// import { BufferMemory, ConversationSummaryBufferMemory } from 'langchain/memory'
+import { BufferMemory, ConversationSummaryBufferMemory } from 'langchain/memory'
 import { PromptTemplate, ChatPromptTemplate, MessagesPlaceholder } from '@langchain/core/prompts'
 import { BaseMessage, HumanMessage, AIMessage, SystemMessage } from '@langchain/core/messages'
 import { RunnableSequence } from '@langchain/core/runnables'
@@ -36,7 +35,7 @@ export interface AgentResponse {
 export class LangChainConversationAgent {
   private openaiChat: ChatOpenAI
   private claudeChat: ChatAnthropic
-  private memory: any // Temporarily disabled for build
+  private memory: ConversationSummaryBufferMemory
   private conversationChain: ConversationChain | null = null
 
   constructor() {
@@ -56,8 +55,12 @@ export class LangChainConversationAgent {
       maxTokens: 4000,
     })
 
-    // Temporarily disabled for build
-    this.memory = null
+    // Initialize memory with summary capability
+    this.memory = new ConversationSummaryBufferMemory({
+      llm: this.openaiChat,
+      maxTokenLimit: 2000,
+      returnMessages: true,
+    })
   }
 
   async initializeSession(sessionId: string): Promise<void> {
@@ -98,9 +101,9 @@ export class LangChainConversationAgent {
       // Skip vector storage for now
       // await this.storeConversationInVector(sessionId, userMessage, response, context)
 
-      // Update memory (simplified for testing)
-      // TODO: Properly implement memory management
-      console.log(`💾 Would save to memory: ${userMessage.slice(0, 30)}... -> ${response.message.slice(0, 30)}...`)
+      // Update memory
+      await this.memory.chatMemory.addUserMessage(userMessage)
+      await this.memory.chatMemory.addAIMessage(response.message)
 
       console.log(`✅ LangChain processing complete`)
       return response
@@ -171,9 +174,9 @@ export class LangChainConversationAgent {
       new StringOutputParser(),
     ])
 
-    // Simplified for testing - no chat history for now
+    const chatHistory = await this.memory.chatMemory.getMessages()
     const rawResponse = await chain.invoke({
-      chat_history: [],
+      chat_history: chatHistory,
     })
 
     return this.parseAgentResponse(rawResponse, context)
@@ -204,9 +207,9 @@ export class LangChainConversationAgent {
       new StringOutputParser(),
     ])
 
-    // Simplified for testing - no chat history for now  
+    const chatHistory = await this.memory.chatMemory.getMessages()
     const rawResponse = await chain.invoke({
-      chat_history: [],
+      chat_history: chatHistory,
     })
 
     return this.parseAgentResponse(rawResponse, context)
