@@ -58,11 +58,17 @@ async function setupDatabaseWithDrizzle() {
           timeout: 30000
         });
         
-        console.log('📦 Applying migrations...');
-        execSync('npx drizzle-kit migrate', { 
-          stdio: 'inherit',
-          timeout: 30000
-        });
+        // Use direct database apply instead of migrate command
+        console.log('📦 Applying migrations directly to database...');
+        const { migrate } = require('drizzle-orm/postgres-js/migrator');
+        const { drizzle } = require('drizzle-orm/postgres-js');
+        const postgres = require('postgres');
+        
+        const client = postgres(process.env.DATABASE_URL, { max: 1 });
+        const db = drizzle(client);
+        
+        await migrate(db, { migrationsFolder: './drizzle' });
+        await client.end();
         
         console.log('✅ Migration approach successful');
         await verifyTables();
