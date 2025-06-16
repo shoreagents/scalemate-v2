@@ -3,11 +3,14 @@ nixPkgs = ["nodejs_18", "npm-9_x", "postgresql"]
 
 [phases.install]
 cmds = [
+    "rm -rf node_modules/.cache || true",
+    "rm -rf .next || true", 
     "npm ci --no-optional --prefer-offline --no-audit --no-fund",
 ]
 
 [phases.build]
 cmds = [
+    "rm -rf node_modules/.cache || true",
     "npm run build",
 ]
 
