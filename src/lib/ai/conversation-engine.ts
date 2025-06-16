@@ -332,9 +332,9 @@ Return only valid JSON with extracted values. If information isn't present, omit
     }
   }
 
-    private async buildConversationContext(session: any): Promise<any> {
+  private async buildConversationContext(session: any): Promise<any> {
     // const memory = await this.memoryManager.getMemory(session.id)
-
+    
     return {
       sessionId: session.id,
       phase: session.phase,

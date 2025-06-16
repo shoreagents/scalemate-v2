@@ -33,8 +33,8 @@ export async function POST(request: NextRequest) {
     try {
       const { ConversationEngine } = await import('@/lib/ai/conversation-engine')
       conversationEngine = new ConversationEngine()
-      
-      // Start new conversation
+    
+    // Start new conversation
       sessionId = await conversationEngine.startConversation(anonymousId)
     } catch (error) {
       console.error('Failed to initialize conversation engine:', error)

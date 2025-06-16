@@ -33,12 +33,12 @@ export async function POST(request: NextRequest) {
       conversationEngine = new ConversationEngine()
       
       // Try to initialize Qdrant service if available
-      try {
+    try {
         const { qdrantService } = await import('@/lib/ai/qdrant-service')
-        await qdrantService.initialize()
-      } catch (error) {
-        console.warn('Qdrant initialization failed, continuing without vector search:', error)
-      }
+      await qdrantService.initialize()
+    } catch (error) {
+      console.warn('Qdrant initialization failed, continuing without vector search:', error)
+    }
     } catch (error) {
       console.error('Failed to initialize conversation engine:', error)
       throw error
@@ -104,8 +104,8 @@ export async function GET(request: NextRequest) {
     try {
       const { ConversationEngine } = await import('@/lib/ai/conversation-engine')
       conversationEngine = new ConversationEngine()
-      // This would require implementing a getConversationHistory method
-      // const history = await conversationEngine.getConversationHistory(sessionId)
+    // This would require implementing a getConversationHistory method
+    // const history = await conversationEngine.getConversationHistory(sessionId)
     } catch (error) {
       console.error('Failed to initialize conversation engine:', error)
       throw error

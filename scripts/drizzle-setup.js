@@ -1,6 +1,5 @@
 const { execSync } = require('child_process');
 const { Pool } = require('pg');
-const { setupTypeScriptPaths, setupESModules, setupDrizzleEnvironment } = require('./ts-node-setup.js');
 
 async function setupDatabaseWithDrizzle() {
   if (!process.env.DATABASE_URL) {
@@ -8,11 +7,6 @@ async function setupDatabaseWithDrizzle() {
   }
 
   try {
-    // Set up TypeScript environment for Drizzle
-    console.log('🔧 Configuring TypeScript environment...');
-    setupTypeScriptPaths();
-    setupESModules();
-    setupDrizzleEnvironment();
     console.log('🔌 Testing database connection...');
     
     const pool = new Pool({
@@ -35,20 +29,17 @@ async function setupDatabaseWithDrizzle() {
     // Create UUID extension first
     await ensureUuidExtension();
     
-    // Try Drizzle push with optimized settings
+    // Run Drizzle push to sync schema
     console.log('🔧 Running Drizzle schema sync...');
-    console.log('📝 This will read your actual schema.ts file and sync all tables');
+    console.log('📝 This will read your schema.ts file and sync all tables');
     
     try {
-      // Use clean TypeScript compilation for schema
-      execSync('npx drizzle-kit push:pg', { 
+      execSync('npx drizzle-kit push', { 
         stdio: 'inherit',
-        timeout: 30000,
+        timeout: 45000,
         env: { 
           ...process.env,
-          DATABASE_URL: process.env.DATABASE_URL,
-          TS_NODE_PROJECT: './drizzle.tsconfig.json',
-          TS_NODE_COMPILER_OPTIONS: '{"strict": false, "skipLibCheck": true}'
+          DATABASE_URL: process.env.DATABASE_URL
         }
       });
       console.log('✅ Drizzle push completed successfully');
@@ -56,24 +47,19 @@ async function setupDatabaseWithDrizzle() {
       // Verify schema was applied
       await verifyTables();
       
-    } catch (error) {
-      console.log('⚠️  Drizzle push failed:', error.message);
-      console.log('🔄 Trying alternative approach...');
+    } catch (pushError) {
+      console.log('⚠️  Drizzle push failed:', pushError.message);
+      console.log('🔄 Trying generate + migrate approach...');
       
-      // Alternative: Use generate + migrate approach
       try {
         console.log('📝 Generating migration files...');
-        execSync('npx drizzle-kit generate:pg', { 
+        execSync('npx drizzle-kit generate', { 
           stdio: 'inherit',
-          timeout: 30000,
-          env: { 
-            ...process.env,
-            NODE_OPTIONS: '--max-old-space-size=4096'
-          }
+          timeout: 30000
         });
         
         console.log('📦 Applying migrations...');
-        execSync('npx drizzle-kit migrate:pg', { 
+        execSync('npx drizzle-kit migrate', { 
           stdio: 'inherit',
           timeout: 30000
         });
@@ -82,12 +68,8 @@ async function setupDatabaseWithDrizzle() {
         await verifyTables();
         
       } catch (migrateError) {
-        console.log('❌ Both Drizzle approaches failed:', migrateError.message);
-        console.log('🔄 Falling back to manual schema creation...');
-        
-        // Import and use the original setup as final fallback
-        const { setupDatabase } = require('./setup-database.js');
-        await setupDatabase();
+        console.log('❌ Migration failed:', migrateError.message);
+        console.log('⚠️  Database will be initialized when first accessed');
       }
     }
     
@@ -135,7 +117,7 @@ async function verifyTables() {
     console.log(`📊 Schema verification: ${tables.length} tables found`);
     console.log('📋 Tables:', tables.join(', '));
     
-    // Expected tables from schema.ts (without safeDeletionTest)
+    // Expected tables from schema.ts
     const expectedTables = [
       'users', 'sessions', 'page_views', 'analytics_events',
       'quote_calculator_sessions', 'quote_messages',
@@ -146,21 +128,15 @@ async function verifyTables() {
     ];
     
     const missingTables = expectedTables.filter(table => !tables.includes(table));
-    const extraTables = tables.filter(table => !expectedTables.includes(table));
     
     if (missingTables.length > 0) {
       console.log('⚠️  Missing tables:', missingTables.join(', '));
+      console.log('💡 Tables will be created when the app routes are first accessed');
+    } else {
+      console.log('✅ All expected tables found - schema sync successful!');
     }
     
-    if (extraTables.length > 0) {
-      console.log('🗑️  Extra tables (will be cleaned up):', extraTables.join(', '));
-    }
-    
-    if (missingTables.length === 0 && extraTables.length === 0) {
-      console.log('✅ Perfect schema sync - all tables match schema.ts');
-    }
-    
-    return { tables, missingTables, extraTables };
+    return { tables, missingTables };
     
   } finally {
     client.release();

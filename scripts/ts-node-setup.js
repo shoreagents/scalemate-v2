@@ -1,16 +1,13 @@
 // TypeScript path resolution for Node.js
 const path = require('path');
-const { register } = require('module');
 
 // Set up module resolution for TypeScript paths
 function setupTypeScriptPaths() {
   // Add base URL resolution
   const projectRoot = path.resolve(__dirname, '..');
   
-  // Register path mappings
-  const originalResolveFilename = require.extensions['.ts'];
-  
   // Handle @ imports
+  const Module = require('module');
   const originalRequire = Module.prototype.require;
   Module.prototype.require = function(id) {
     if (id.startsWith('@/')) {
