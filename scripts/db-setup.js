@@ -40,7 +40,7 @@ try {
   console.log(`📋 Found drizzle-kit at: ${drizzleKitPath}`);
   console.log('📋 Pushing database schema...');
   
-  execSync(`${drizzleKitPath} push`, {
+  execSync(`${drizzleKitPath} push:pg`, {
     stdio: 'inherit',
     cwd: process.cwd(),
     env: { ...process.env }
