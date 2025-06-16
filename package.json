@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "npm run db:migrate && next build",
+    "build": "next build",
+    "start": "node scripts/start.js",
+    "start:next": "next start",
     "db:migrate:safe": "drizzle-kit push:pg --verbose",
-    "build:app": "next build",
-    "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "test": "jest",
