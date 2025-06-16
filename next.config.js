@@ -7,10 +7,8 @@ const nextConfig = {
     // !! WARN !!
     ignoreBuildErrors: true,
   },
-  experimental: {
-    // Skip API routes during build to prevent database connection issues
-    isrMemoryCacheSize: 0,
-  },
+  // Build optimizations
+  output: 'standalone',
   images: {
     domains: ['images.unsplash.com', 'via.placeholder.com'],
     formats: ['image/webp', 'image/avif'],
