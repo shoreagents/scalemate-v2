@@ -15,9 +15,11 @@ cmds = [
 ]
 
 [start]
-cmd = "npm run start"
+cmd = "node scripts/start-with-db.js"
 
 [variables]
 NPM_CONFIG_CACHE = "/tmp/.npm"
 CYPRESS_CACHE_FOLDER = "/tmp/.cypress"
+CYPRESS_INSTALL_BINARY = "0"
+CYPRESS_SKIP_BINARY_INSTALL = "true"
 NODE_ENV = "production" 

@@ -10,7 +10,8 @@ WORKDIR /app
 
 # Install dependencies based on the preferred package manager
 COPY package.json package-lock.json* ./
-RUN npm ci --no-optional --prefer-offline --no-audit --no-fund
+# Install only production dependencies in deps stage
+RUN npm ci --only=production --no-optional --prefer-offline --no-audit --no-fund
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -21,15 +22,17 @@ COPY . .
 # Disable telemetry during the build
 ENV NEXT_TELEMETRY_DISABLED 1
 
-# Set environment variables to avoid cache conflicts
+# Set environment variables to avoid cache conflicts and skip Cypress
 ENV NPM_CONFIG_CACHE=/tmp/.npm
 ENV CYPRESS_CACHE_FOLDER=/tmp/.cypress
+ENV CYPRESS_INSTALL_BINARY=0
+ENV CYPRESS_SKIP_BINARY_INSTALL=true
 
 # Remove any existing cache directories
 RUN rm -rf node_modules/.cache || true
 RUN rm -rf .next || true
 
-# Install all dependencies (including dev dependencies for build)
+# Install all dependencies (including dev dependencies for build, but skip Cypress binaries)
 RUN npm ci --no-optional --prefer-offline --no-audit --no-fund
 
 # Build the application
