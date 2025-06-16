@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { conversationMemory, conversationSessions } from '@/lib/db/schema'
-import { eq, and, desc, gte } from 'drizzle-orm'
+import { eq, and, desc, gte, isNull, sql } from 'drizzle-orm'
 
 export interface MemoryItem {
   key: string
@@ -40,7 +40,7 @@ export class MemoryManager {
       where: and(
         eq(conversationMemory.sessionId, sessionId),
         // Only get non-expired items
-        eq(conversationMemory.expiresAt, null) // or gte(conversationMemory.expiresAt, new Date())
+        isNull(conversationMemory.expiresAt) // or gte(conversationMemory.expiresAt, new Date())
       ),
       orderBy: [desc(conversationMemory.importance), desc(conversationMemory.lastAccessed)]
     })
@@ -298,7 +298,7 @@ export class MemoryManager {
   private async incrementAccessCount(memoryId: string): Promise<void> {
     await db.update(conversationMemory)
       .set({
-        accessCount: db.raw('access_count + 1'),
+        accessCount: sql`${conversationMemory.accessCount} + 1`,
         lastAccessed: new Date()
       })
       .where(eq(conversationMemory.id, memoryId))

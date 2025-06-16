@@ -4,25 +4,32 @@ import * as schema from './schema'
 
 const connectionString = process.env.DATABASE_URL
 
-// Only create database connection if DATABASE_URL is provided
-// This allows the build to succeed without a database connection
-let db: ReturnType<typeof drizzle> | null = null
-
-if (connectionString) {
-  // Disable prefetch as it is not supported for "Transaction" pool mode
-  const client = postgres(connectionString, { prepare: false })
-  db = drizzle(client, { schema })
-} else if (process.env.NODE_ENV !== 'production') {
+if (!connectionString && process.env.NODE_ENV !== 'production') {
   console.warn('DATABASE_URL not provided - database features will be disabled')
 }
 
-// Export a proxy that throws helpful errors when database is not available
-export const dbProxy = new Proxy({} as ReturnType<typeof drizzle>, {
+// Create a type-safe database instance
+const createDb = () => {
+  if (!connectionString) {
+    // Create a mock database for TypeScript compilation
+    const mockClient = {} as postgres.Sql
+    return drizzle(mockClient, { schema })
+  }
+  
+  const client = postgres(connectionString, { prepare: false })
+  return drizzle(client, { schema })
+}
+
+// Always create the database instance for proper TypeScript support
+const database = createDb()
+
+// Export a proxy that handles runtime database availability
+export const dbProxy = new Proxy(database, {
   get(target, prop) {
-    if (!db) {
+    if (!connectionString && typeof prop === 'string' && ['query', 'insert', 'update', 'delete', 'select'].includes(prop)) {
       throw new Error('Database connection not available. Please set DATABASE_URL environment variable.')
     }
-    return (db as any)[prop]
+    return (target as any)[prop]
   }
 })
 

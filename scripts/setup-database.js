@@ -43,6 +43,10 @@ async function setupDatabase() {
     console.log('🏗️  Creating comprehensive schema (all tables)...');
     await createFullSchema();
     
+    // Check for tables that should be removed
+    console.log('🗑️  Checking for tables to remove...');
+    await removeDeletedTables();
+    
   } catch (error) {
     console.error('❌ Database setup error:', error.message);
     await createFullSchema();
@@ -79,9 +83,6 @@ async function createFullSchema() {
     
     // Advanced AI conversation tables
     await createAdvancedAITablesIfNotExist(client);
-    
-    // Test table (for demonstration)
-    await createTestTablesIfNotExist(client);
     
     // Show final table count
     const tableCount = await client.query(`
@@ -373,18 +374,63 @@ async function createAdvancedAITablesIfNotExist(client) {
   console.log('✅ Advanced AI tables ready');
 }
 
-async function createTestTablesIfNotExist(client) {
-  // Test table for demonstration
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS safe_deletion_test (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-      test_data VARCHAR(255) NOT NULL DEFAULT 'demo_data',
-      created_at TIMESTAMP DEFAULT NOW() NOT NULL,
-      description TEXT DEFAULT 'This table will be safely deleted to demonstrate schema removal'
-    )
-  `);
+
+
+async function removeDeletedTables() {
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  });
+
+  const client = await pool.connect();
   
-  console.log('✅ Test table ready');
+  try {
+    // List of tables that should exist (remove safe_deletion_test from list)
+    const expectedTables = [
+      'users', 'sessions', 'page_views', 'analytics_events',
+      'quote_calculator_sessions', 'quote_messages',
+      'readiness_test_sessions', 'test_responses',
+      'authors', 'categories', 'tags', 'blog_posts', 'post_categories', 'post_tags',
+      'email_captures', 'email_campaigns',
+      'conversation_sessions', 'conversation_messages'
+    ];
+    
+    // Get all existing tables
+    const existingTablesResult = await client.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+    `);
+    
+    const existingTables = existingTablesResult.rows.map(row => row.table_name);
+    console.log('📋 Existing tables:', existingTables);
+    
+    // Find tables to remove (exist in DB but not in expected list)
+    const tablesToRemove = existingTables.filter(table => !expectedTables.includes(table));
+    
+    if (tablesToRemove.length > 0) {
+      console.log('🗑️  Tables to remove:', tablesToRemove);
+      
+      for (const table of tablesToRemove) {
+        try {
+          // Safety check - don't remove important system tables
+          if (!table.startsWith('pg_') && !table.startsWith('information_') && table !== 'spatial_ref_sys') {
+            console.log(`🗑️  Removing table: ${table}`);
+            await client.query(`DROP TABLE IF EXISTS "${table}" CASCADE`);
+            console.log(`✅ Removed table: ${table}`);
+          }
+        } catch (error) {
+          console.log(`⚠️  Could not remove table ${table}:`, error.message);
+        }
+      }
+    } else {
+      console.log('✅ No tables to remove - schema is clean');
+    }
+    
+  } finally {
+    client.release();
+    await pool.end();
+  }
 }
 
 module.exports = { setupDatabase }; 

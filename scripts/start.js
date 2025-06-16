@@ -18,12 +18,22 @@ async function runMigrations() {
     }
 
     console.log('📍 Database URL found, running database setup...');
-    console.log('🔧 Creating database connection and pushing schema...');
+    console.log('🔧 Running Drizzle-native schema sync...');
     
-    // Use direct connection instead of drizzle-kit to avoid TypeScript compilation issues
-    const { setupDatabase } = require('./setup-database.js');
-    await setupDatabase();
-    console.log('✅ Database schema synchronized successfully');
+    // Try Drizzle-native approach first (reads schema.ts directly)
+    try {
+      const { setupDatabaseWithDrizzle } = require('./drizzle-setup.js');
+      await setupDatabaseWithDrizzle();
+      console.log('✅ Drizzle-native schema sync successful');
+    } catch (drizzleError) {
+      console.log('⚠️  Drizzle-native approach failed, using fallback...');
+      console.log('🔄 Using manual schema setup...');
+      
+      // Fallback to manual setup
+      const { setupDatabase } = require('./setup-database.js');
+      await setupDatabase();
+      console.log('✅ Manual schema setup completed');
+    }
   } catch (error) {
     console.error('❌ Database setup failed:', error.message);
     console.log('⚠️  Continuing without database setup...');
