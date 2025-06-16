@@ -14,9 +14,9 @@ if (!process.env.DATABASE_URL) {
 console.log('🗄️  DATABASE_URL found - running database setup...');
 
 try {
-  // Run database migrations using drizzle config
+  // Run database migrations using simple drizzle command
   console.log('📋 Pushing database schema...');
-  execSync('npx drizzle-kit push:pg --config=./drizzle.config.ts', {
+  execSync('npx drizzle-kit push', {
     stdio: 'inherit',
     cwd: process.cwd(),
     env: { ...process.env }
