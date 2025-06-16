@@ -18,7 +18,8 @@ console.log('🗄️  DATABASE_URL found - attempting database setup...');
 const possiblePaths = [
   './node_modules/.bin/drizzle-kit',
   'node_modules/.bin/drizzle-kit',
-  '/app/node_modules/.bin/drizzle-kit'
+  '/app/node_modules/.bin/drizzle-kit',
+  'node_modules/drizzle-kit/bin.cjs'
 ];
 
 let drizzleKitPath = null;

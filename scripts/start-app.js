@@ -18,14 +18,14 @@ try {
 
 // Now try to start Next.js using different approaches
 const nextStartMethods = [
-  () => spawn('next', ['start'], { stdio: 'inherit' }),
+  () => spawn('node', ['server.js'], { stdio: 'inherit' }), // Next.js standalone server
   () => spawn('./node_modules/.bin/next', ['start'], { stdio: 'inherit' }),
   () => spawn('node_modules/.bin/next', ['start'], { stdio: 'inherit' }),
-  () => spawn('/app/node_modules/.bin/next', ['start'], { stdio: 'inherit' }),
   () => spawn('node', ['./node_modules/next/dist/bin/next', 'start'], { stdio: 'inherit' }),
   () => spawn('node', ['node_modules/next/dist/bin/next', 'start'], { stdio: 'inherit' }),
+  () => spawn('next', ['start'], { stdio: 'inherit' }),
   () => spawn('npx', ['next', 'start'], { stdio: 'inherit' }),
-  () => spawn('npm', ['run', 'start'], { stdio: 'inherit' })
+  () => spawn('npm', ['run', 'start:next'], { stdio: 'inherit' })
 ];
 
 async function tryStartNext() {
