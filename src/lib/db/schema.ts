@@ -1,6 +1,14 @@
 import { pgTable, text, timestamp, integer, boolean, jsonb, uuid, varchar, decimal } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
+// SAFE TEST: This table will be created then deleted to demonstrate behavior
+export const safeDeletionTest = pgTable('safe_deletion_test', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  testData: varchar('test_data', { length: 255 }).notNull().default('demo_data'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  description: text('description').default('This table will be safely deleted to demonstrate schema removal'),
+})
+
 // Users and Sessions
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -9,9 +17,6 @@ export const users = pgTable('users', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   preferences: jsonb('preferences'),
-  // TEST: New column added to existing table
-  testNewColumn: varchar('test_new_column', { length: 100 }).default('test_value'),
-  lastLoginAt: timestamp('last_login_at'),
 })
 
 export const sessions = pgTable('sessions', {

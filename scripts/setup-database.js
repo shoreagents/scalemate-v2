@@ -55,15 +55,15 @@ async function setupDatabase() {
       });
       console.log('✅ Drizzle push completed successfully');
       
-      // Verify the changes were applied
-      await verifySchemaChanges();
+      // Clean up test columns that were removed from schema
+      await cleanupTestColumns();
       
     } catch (error) {
       console.log('⚠️  Drizzle push had issues:', error.message);
       console.log('🔄 Applying schema changes manually...');
       
       // Manual schema update to ensure changes are applied
-      await applySchemaChangesManually();
+      await cleanupTestColumns();
     }
     
   } catch (error) {
@@ -75,7 +75,7 @@ async function setupDatabase() {
   }
 }
 
-async function verifySchemaChanges() {
+async function cleanupTestColumns() {
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
@@ -84,65 +84,39 @@ async function verifySchemaChanges() {
   const client = await pool.connect();
   
   try {
-    console.log('🔍 Verifying schema changes were applied...');
+    console.log('🧹 Cleaning up test columns...');
     
-    // Check if new columns exist in users table
-    const result = await client.query(`
+    // Check if test columns exist and remove them
+    const existingColumns = await client.query(`
       SELECT column_name 
       FROM information_schema.columns 
       WHERE table_name = 'users' AND column_name IN ('test_new_column', 'last_login_at')
     `);
     
-    const foundColumns = result.rows.map(r => r.column_name);
-    console.log('🔎 Found new columns:', foundColumns);
-    
-    if (foundColumns.includes('test_new_column') && foundColumns.includes('last_login_at')) {
-      console.log('✅ Schema changes verified - new columns exist!');
+    if (existingColumns.rows.length > 0) {
+      console.log('🔍 Found test columns to remove:', existingColumns.rows.map(r => r.column_name));
+      
+      // Remove test_new_column
+      try {
+        await client.query('ALTER TABLE users DROP COLUMN IF EXISTS test_new_column');
+        console.log('🗑️  Removed test_new_column');
+      } catch (e) {
+        console.log('⚠️  Could not remove test_new_column:', e.message);
+      }
+      
+      // Remove last_login_at  
+      try {
+        await client.query('ALTER TABLE users DROP COLUMN IF EXISTS last_login_at');
+        console.log('🗑️  Removed last_login_at');
+      } catch (e) {
+        console.log('⚠️  Could not remove last_login_at:', e.message);
+      }
     } else {
-      console.log('⚠️  Schema changes not detected, applying manually...');
-      throw new Error('Schema verification failed');
+      console.log('✅ No test columns found - schema is clean');
     }
     
-  } finally {
-    client.release();
-    await pool.end();
-  }
-}
-
-async function applySchemaChangesManually() {
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-  });
-
-  const client = await pool.connect();
-  
-  try {
-    console.log('🔧 Manually applying schema changes...');
-    
-    // Add the test columns to users table if they don't exist
-    try {
-      await client.query(`
-        ALTER TABLE users 
-        ADD COLUMN IF NOT EXISTS test_new_column VARCHAR(100) DEFAULT 'test_value'
-      `);
-      console.log('✅ Added test_new_column to users table');
-    } catch (e) {
-      console.log('⚠️  test_new_column might already exist or table not found');
-    }
-    
-    try {
-      await client.query(`
-        ALTER TABLE users 
-        ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP
-      `);
-      console.log('✅ Added last_login_at to users table');
-    } catch (e) {
-      console.log('⚠️  last_login_at might already exist or table not found');
-    }
-    
-    // Verify the manual changes
-    const result = await client.query(`
+    // Show final table structure
+    const finalColumns = await client.query(`
       SELECT column_name, data_type, column_default
       FROM information_schema.columns 
       WHERE table_name = 'users' 
@@ -150,7 +124,7 @@ async function applySchemaChangesManually() {
     `);
     
     console.log('📋 Final users table structure:');
-    result.rows.forEach(row => {
+    finalColumns.rows.forEach(row => {
       console.log(`  - ${row.column_name} (${row.data_type}) ${row.column_default ? `default: ${row.column_default}` : ''}`);
     });
     
@@ -171,7 +145,7 @@ async function createBasicTables() {
   try {
     await client.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
     
-    // Create users table with the new columns included
+    // Create users table with original schema (no test columns)
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -179,9 +153,7 @@ async function createBasicTables() {
         session_id VARCHAR(255) NOT NULL,
         created_at TIMESTAMP DEFAULT NOW() NOT NULL,
         updated_at TIMESTAMP DEFAULT NOW() NOT NULL,
-        preferences JSONB,
-        test_new_column VARCHAR(100) DEFAULT 'test_value',
-        last_login_at TIMESTAMP
+        preferences JSONB
       )
     `);
     
@@ -200,7 +172,7 @@ async function createBasicTables() {
       )
     `);
     
-    console.log('✅ Fallback tables created with new schema');
+    console.log('✅ Clean tables created without test columns');
   } finally {
     client.release();
     await pool.end();
