@@ -1,271 +1,200 @@
 #!/usr/bin/env node
 
-const { execSync } = require('child_process');
-const { existsSync } = require('fs');
+const { spawn, spawnSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
-console.log('🔍 Database setup check...');
-console.log('🔧 Current working directory:', process.cwd());
-console.log('🔧 NODE_ENV:', process.env.NODE_ENV);
-
-// Check if DATABASE_URL is available
-if (!process.env.DATABASE_URL) {
-  console.log('⚠️  DATABASE_URL not found');
-  console.log('🔧 This is expected in local development');
-  console.log('✅ Skipping database setup for local development');
-  process.exit(0);
-}
-
-console.log('🗄️  DATABASE_URL found - running database setup...');
-console.log('🔧 DATABASE_URL format check:', process.env.DATABASE_URL.substring(0, 20) + '...');
-
-// Test database connection using Node.js instead of psql
-async function testDatabaseConnection() {
-  try {
-    console.log('🔗 Testing database connection with Node.js...');
-    
-    // Use the postgres library for connection test
-    const testScript = `
-      const { Client } = require('pg');
-      const client = new Client({ connectionString: process.env.DATABASE_URL });
-      client.connect().then(() => {
-        console.log('Connection successful');
-        client.end();
-        process.exit(0);
-      }).catch(err => {
-        console.error('Connection failed:', err.message);
-        process.exit(1);
-      });
-    `;
-    
-    execSync(`node -e "${testScript}"`, {
-      stdio: 'pipe',
-      timeout: 10000,
-      env: { ...process.env }
-    });
-    
-    console.log('✅ Database connection successful');
-    return true;
-  } catch (error) {
-    console.log('⚠️  Database connection test failed, continuing anyway...');
-    console.log('🔧 Error:', error.message);
-    return false;
-  }
-}
-
-// Check for drizzle config file
-const configFiles = ['drizzle.config.ts', 'drizzle.config.js'];
-let configFile = null;
-for (const file of configFiles) {
-  if (existsSync(file)) {
-    configFile = file;
-    break;
-  }
-}
-
-if (!configFile) {
-  console.error('❌ No drizzle config file found');
-  console.error('❌ Database setup cannot proceed without configuration');
-  process.exit(1);
-}
-
-console.log('📋 Found drizzle config:', configFile);
+console.log('🔍 Attempting database setup...');
 
 async function setupDatabase() {
-  // Test connection first
-  await testDatabaseConnection();
-  
   try {
+    console.log('🔍 Database setup check...');
+    console.log('🔧 Current working directory:', process.cwd());
+    console.log('🔧 NODE_ENV:', process.env.NODE_ENV);
+
+    // Check if DATABASE_URL exists
+    if (!process.env.DATABASE_URL) {
+      console.log('⚠️  No DATABASE_URL found, skipping database setup');
+      return;
+    }
+
+    console.log('🗄️  DATABASE_URL found - running database setup...');
+    console.log('🔧 DATABASE_URL format check:', process.env.DATABASE_URL.substring(0, 20) + '...');
+
+    // Check if drizzle config exists
+    const configPath = path.join(process.cwd(), 'drizzle.config.ts');
+    if (!fs.existsSync(configPath)) {
+      console.log('⚠️  No drizzle.config.ts found, skipping schema setup');
+      return;
+    }
+
+    console.log('📋 Found drizzle config:', 'drizzle.config.ts');
+
+    // Test database connection with Node.js
+    console.log('🔗 Testing database connection with Node.js...');
+    try {
+      const { Client } = require('pg');
+      const client = new Client({ connectionString: process.env.DATABASE_URL });
+      await client.connect();
+      console.log('✅ Database connection successful');
+      await client.end();
+    } catch (connError) {
+      console.log('❌ Database connection failed:', connError.message);
+      return;
+    }
+
+    // Push database schema with drizzle-kit using proper approach for v0.20.18
     console.log('📋 Pushing database schema with drizzle-kit...');
     
-    // Use config file approach with --yes flag for non-interactive mode (v0.20.18)
-    const pushCommand = 'npx drizzle-kit push:pg --config=drizzle.config.ts --yes';
-    console.log('🔧 Executing command:', pushCommand);
+    // Try with the --force flag (documented for v0.20.18)
+    console.log('🔧 Executing command: npx drizzle-kit push:pg --config=drizzle.config.ts --force');
     
-    execSync(pushCommand, {
+    let result = spawnSync('npx', ['drizzle-kit', 'push:pg', '--config=drizzle.config.ts', '--force'], {
       stdio: 'inherit',
-      cwd: process.cwd(),
-      env: { ...process.env },
-      timeout: 45000 // Longer timeout for schema creation
+      timeout: 30000
     });
+
+    if (result.status === 0) {
+      console.log('✅ Database schema setup completed successfully with --force flag');
+      return;
+    }
+
+    console.log('⚠️  Force flag approach failed, trying with new syntax...');
     
-    console.log('✅ Schema push completed successfully');
+    // Try with new syntax and --force flag
+    console.log('🔧 Trying new syntax: npx drizzle-kit push --config=drizzle.config.ts --force');
     
+    result = spawnSync('npx', ['drizzle-kit', 'push', '--config=drizzle.config.ts', '--force'], {
+      stdio: 'inherit',
+      timeout: 30000
+    });
+
+    if (result.status === 0) {
+      console.log('✅ Database schema setup completed successfully with new syntax');
+      return;
+    }
+
+    console.log('⚠️  New syntax with force failed, trying with stdin input...');
+    
+    // Try with stdin input (pipe 'y' for confirmation)
+    console.log('🔧 Trying with stdin confirmation: npx drizzle-kit push:pg --config=drizzle.config.ts');
+    
+    const child = spawn('npx', ['drizzle-kit', 'push:pg', '--config=drizzle.config.ts'], {
+      stdio: ['pipe', 'inherit', 'inherit'],
+      timeout: 30000
+    });
+
+    // Auto-confirm by sending 'y' to stdin
+    setTimeout(() => {
+      child.stdin.write('y\n');
+      child.stdin.end();
+    }, 2000);
+
+    const exitCode = await new Promise((resolve) => {
+      child.on('close', resolve);
+    });
+
+    if (exitCode === 0) {
+      console.log('✅ Database schema setup completed successfully with stdin input');
+      return;
+    }
+
+    console.log('⚠️  Stdin approach failed, trying manual SQL execution...');
+
+    // Fallback: Manual SQL table creation
+    await manualTableCreation();
+
   } catch (error) {
-    console.log('⚠️  Config file approach failed, trying with schema parameter...');
-    
-    try {
-      // Try with explicit schema parameter and yes flag
-      const schemaCommand = 'npx drizzle-kit push:pg --schema=./src/lib/db/schema.ts --driver=pg --yes';
-      console.log('🔧 Trying with schema parameter:', schemaCommand);
-      
-      execSync(schemaCommand, {
-        stdio: 'inherit',
-        cwd: process.cwd(),
-        env: { ...process.env },
-        timeout: 30000
-      });
-      
-      console.log('✅ Schema push completed with schema parameter');
-      
-    } catch (schemaError) {
-      console.log('⚠️  Schema parameter approach failed, trying without confirmation flags...');
-      
-      try {
-        // Try basic command without confirmation flags
-        const basicCommand = 'npx drizzle-kit push:pg --config=drizzle.config.ts';
-        console.log('🔧 Trying basic command:', basicCommand);
-        
-        // Set environment variable to auto-confirm
-        const env = { ...process.env, DRIZZLE_KIT_AUTO_CONFIRM: 'true' };
-        
-        execSync(basicCommand, {
-          stdio: 'inherit',
-          cwd: process.cwd(),
-          env: env,
-          timeout: 30000,
-          input: 'y\n' // Send 'y' as input to confirm
-        });
-        
-        console.log('✅ Schema push completed with basic command');
-        
-      } catch (basicError) {
-        console.log('⚠️  All drizzle-kit approaches failed, creating basic tables manually...');
-        
-        // Create basic tables manually using a proper Node.js script file
-        try {
-          const { writeFileSync } = require('fs');
-          
-          // Write a temporary SQL setup script
-          const sqlSetupScript = `
-            const { Client } = require('pg');
-            
-            async function createBasicTables() {
-              const client = new Client({ connectionString: process.env.DATABASE_URL });
-              
-              try {
-                await client.connect();
-                console.log('Connected to database for manual setup');
-                
-                // Create users table
-                await client.query(\`
-                  CREATE TABLE IF NOT EXISTS users (
-                    id SERIAL PRIMARY KEY,
-                    email VARCHAR(255) UNIQUE NOT NULL,
-                    name VARCHAR(255),
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                  )
-                \`);
-                console.log('✅ Created users table');
-                
-                // Create anonymous_sessions table
-                await client.query(\`
-                  CREATE TABLE IF NOT EXISTS anonymous_sessions (
-                    id VARCHAR(255) PRIMARY KEY,
-                    ip_address VARCHAR(45),
-                    user_agent TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                  )
-                \`);
-                console.log('✅ Created anonymous_sessions table');
-                
-                // Create anonymous_activities table
-                await client.query(\`
-                  CREATE TABLE IF NOT EXISTS anonymous_activities (
-                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                    session_id VARCHAR(255) NOT NULL,
-                    activity_type VARCHAR(50) NOT NULL,
-                    activity_data JSONB NOT NULL,
-                    value_score INTEGER DEFAULT 1,
-                    page_path VARCHAR(500),
-                    element_id VARCHAR(100),
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                  )
-                \`);
-                console.log('✅ Created anonymous_activities table');
-                
-                console.log('✅ Basic table creation completed successfully');
-                
-              } catch (error) {
-                console.error('❌ Error creating tables:', error.message);
-                throw error;
-              } finally {
-                await client.end();
-              }
-            }
-            
-            createBasicTables();
-          `;
-          
-          // Write the script to a temporary file
-          writeFileSync('/tmp/setup-tables.js', sqlSetupScript);
-          
-          // Execute the script
-          execSync('node /tmp/setup-tables.js', {
-            stdio: 'inherit',
-            timeout: 15000,
-            env: { ...process.env }
-          });
-          
-          console.log('✅ Manual table creation completed');
-          
-        } catch (sqlError) {
-          console.error('❌ Manual table creation failed');
-          console.error('🔧 SQL Error:', sqlError.message);
-          throw basicError; // Throw the original drizzle error
-        }
-      }
-    }
+    console.error('❌ Database setup failed:', error);
+    console.log('⚠️  Database setup failed, but continuing with app startup...');
   }
-  
-  // Try seeding if script exists
-  if (existsSync('scripts/seed.js')) {
-    try {
-      console.log('📋 Seeding database...');
-      
-      execSync('node scripts/seed.js', {
-        stdio: 'inherit',
-        cwd: process.cwd(),
-        env: { ...process.env },
-        timeout: 20000 // Longer timeout for seeding
-      });
-      
-      console.log('✅ Database seeding completed successfully');
-    } catch (seedError) {
-      console.log('⚠️  Seeding failed, but continuing:', seedError.message);
-    }
-  } else {
-    console.log('⚠️  No seed script found - skipping seeding');
-  }
-  
-  console.log('✅ Database setup completed successfully');
-  console.log('🚀 Application ready to start');
 }
 
-// Run setup with error handling
-setupDatabase().catch((error) => {
-  console.error('❌ Database setup failed');
-  console.error('❌ Error:', error.message);
-  console.error('❌ Exit code:', error.status);
-  
-  if (error.stdout) {
-    console.error('📋 stdout:', error.stdout.toString());
-  }
-  if (error.stderr) {
-    console.error('📋 stderr:', error.stderr.toString());
-  }
-  
-  // For production, allow app to start even if database setup fails
-  if (process.env.NODE_ENV === 'production') {
-    console.log('⚠️  Database setup failed in production');
-    console.log('🔧 Checking if app can start without full database setup...');
+async function manualTableCreation() {
+  try {
+    console.log('📋 Attempting manual table creation...');
     
-    // Allow app to start - health check will show the status
-    console.log('✅ Allowing app to start - health check will show database status');
-    process.exit(0);
-  } else {
-    console.log('⚠️  Development mode - continuing despite database setup failure');
-    process.exit(0);
+    const { Client } = require('pg');
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+
+    // Create essential tables manually
+    const createTablesSQL = `
+      CREATE TABLE IF NOT EXISTS "analytics_events" (
+        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        "session_id" varchar(255) NOT NULL,
+        "event_type" varchar(100) NOT NULL,
+        "event_data" jsonb,
+        "timestamp" timestamp DEFAULT now() NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS "anonymous_activities" (
+        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        "session_id" varchar(255) NOT NULL,
+        "activity_type" varchar(50) NOT NULL,
+        "activity_data" jsonb NOT NULL,
+        "value_score" integer DEFAULT 1,
+        "page_path" varchar(500),
+        "element_id" varchar(100),
+        "timestamp" timestamp DEFAULT now() NOT NULL,
+        "duration" integer
+      );
+
+      CREATE TABLE IF NOT EXISTS "anonymous_sessions" (
+        "session_id" varchar(255) PRIMARY KEY NOT NULL,
+        "ip_address" varchar(45),
+        "location" varchar(100),
+        "device_info" jsonb,
+        "created_at" timestamp DEFAULT now() NOT NULL,
+        "last_activity" timestamp DEFAULT now() NOT NULL,
+        "total_page_views" integer DEFAULT 0,
+        "conversation_id" varchar(255) NOT NULL,
+        "current_step" varchar(50) NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS "blog_posts" (
+        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        "title" varchar(255) NOT NULL,
+        "slug" varchar(255) NOT NULL,
+        "content" text NOT NULL,
+        "excerpt" varchar(500),
+        "featured_image" varchar(500),
+        "published" boolean DEFAULT false,
+        "created_at" timestamp DEFAULT now() NOT NULL,
+        "updated_at" timestamp DEFAULT now() NOT NULL,
+        CONSTRAINT "blog_posts_slug_unique" UNIQUE("slug")
+      );
+
+      CREATE TABLE IF NOT EXISTS "leads" (
+        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        "email" varchar(255) NOT NULL,
+        "name" varchar(255),
+        "company" varchar(255),
+        "phone" varchar(50),
+        "requirements" text,
+        "budget_range" varchar(100),
+        "timeline" varchar(100),
+        "source" varchar(100),
+        "status" varchar(50) DEFAULT 'new',
+        "created_at" timestamp DEFAULT now() NOT NULL,
+        "updated_at" timestamp DEFAULT now() NOT NULL
+      );
+    `;
+
+    await client.query(createTablesSQL);
+    console.log('✅ Manual table creation completed successfully');
+    
+    await client.end();
+
+  } catch (error) {
+    console.error('❌ Manual table creation failed:', error.message);
+    throw error;
   }
-}); 
+}
+
+// Run the setup
+if (require.main === module) {
+  setupDatabase().catch(console.error);
+}
+
+module.exports = { setupDatabase }; 
