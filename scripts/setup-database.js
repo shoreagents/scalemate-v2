@@ -1,8 +1,5 @@
 const { Pool } = require('pg');
 
-// Import your schema
-const schema = require('../src/lib/db/schema');
-
 async function setupDatabase() {
   if (!process.env.DATABASE_URL) {
     throw new Error('DATABASE_URL not found');
@@ -24,14 +21,8 @@ async function setupDatabase() {
     
     client.release();
     
-    // Import and run drizzle migration at runtime
-    const { drizzle } = require('drizzle-orm/node-postgres');
-    const db = drizzle(pool, { schema });
-    
-    // Use Drizzle's introspection to create tables
+    // Create tables using raw SQL to avoid import issues
     console.log('🔧 Setting up database tables...');
-    
-    // Create tables using raw SQL to avoid TypeScript compilation issues
     await createTables(pool);
     
     console.log('✅ Database setup completed');
@@ -78,7 +69,7 @@ async function createTables(pool) {
       )
     `);
     
-    // Create other essential tables
+    // Create page_views table
     await client.query(`
       CREATE TABLE IF NOT EXISTS page_views (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -91,6 +82,7 @@ async function createTables(pool) {
       )
     `);
     
+    // Create analytics_events table
     await client.query(`
       CREATE TABLE IF NOT EXISTS analytics_events (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -100,8 +92,59 @@ async function createTables(pool) {
         timestamp TIMESTAMP DEFAULT NOW() NOT NULL
       )
     `);
-    
-    console.log('✅ Core tables created successfully');
+
+    // Create quote_calculator_sessions table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS quote_calculator_sessions (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        session_id VARCHAR(255) NOT NULL,
+        conversation_id VARCHAR(255) NOT NULL,
+        current_step VARCHAR(50) NOT NULL,
+        business_info JSONB,
+        requirements JSONB,
+        quote JSONB,
+        status VARCHAR(20) NOT NULL DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+      )
+    `);
+
+    // Create conversation_sessions table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS conversation_sessions (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        anonymous_id VARCHAR(255) NOT NULL,
+        phase VARCHAR(50) NOT NULL DEFAULT 'discovery',
+        current_step INTEGER NOT NULL DEFAULT 1,
+        total_steps INTEGER NOT NULL DEFAULT 4,
+        conversation_state JSONB,
+        user_profile JSONB,
+        business_context JSONB,
+        role_requirements JSONB,
+        qualification_data JSONB,
+        generated_quote JSONB,
+        completion_rate DECIMAL(5,2) DEFAULT 0.00,
+        engagement_score DECIMAL(5,2) DEFAULT 0.00,
+        status VARCHAR(20) NOT NULL DEFAULT 'active',
+        last_interaction TIMESTAMP DEFAULT NOW() NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+      )
+    `);
+
+    // Create conversation_messages table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS conversation_messages (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        session_id UUID REFERENCES conversation_sessions(id) NOT NULL,
+        role VARCHAR(20) NOT NULL,
+        content TEXT NOT NULL,
+        timestamp TIMESTAMP DEFAULT NOW() NOT NULL,
+        metadata JSONB
+      )
+    `);
+
+    console.log('✅ All database tables created successfully');
   } finally {
     client.release();
   }
