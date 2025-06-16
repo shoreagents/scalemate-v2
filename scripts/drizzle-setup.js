@@ -40,14 +40,15 @@ async function setupDatabaseWithDrizzle() {
     console.log('📝 This will read your actual schema.ts file and sync all tables');
     
     try {
-      // Use push with force flag and better error handling
-      execSync('npx drizzle-kit push:pg --force', { 
+      // Use clean TypeScript compilation for schema
+      execSync('npx drizzle-kit push:pg', { 
         stdio: 'inherit',
-        timeout: 60000,
+        timeout: 30000,
         env: { 
-          ...process.env, 
-          DRIZZLE_KIT_VERBOSE: 'true',
-          NODE_OPTIONS: '--max-old-space-size=4096'
+          ...process.env,
+          DATABASE_URL: process.env.DATABASE_URL,
+          TS_NODE_PROJECT: './drizzle.tsconfig.json',
+          TS_NODE_COMPILER_OPTIONS: '{"strict": false, "skipLibCheck": true}'
         }
       });
       console.log('✅ Drizzle push completed successfully');

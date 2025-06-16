@@ -84,6 +84,9 @@ async function createFullSchema() {
     // Advanced AI conversation tables
     await createAdvancedAITablesIfNotExist(client);
     
+    // Test tables
+    await createTestTablesIfNotExist(client);
+    
     // Show final table count
     const tableCount = await client.query(`
       SELECT COUNT(*) as count 
@@ -371,7 +374,18 @@ async function createAdvancedAITablesIfNotExist(client) {
     )
   `);
   
+  // Test table to verify schema sync
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS drizzle_schema_test (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      test_message VARCHAR(255) NOT NULL DEFAULT 'Drizzle can read schema.ts!',
+      created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+      schema_version VARCHAR(50) NOT NULL DEFAULT 'v2.0'
+    )
+  `);
+  
   console.log('✅ Advanced AI tables ready');
+  console.log('✅ Test table ready');
 }
 
 
@@ -392,7 +406,8 @@ async function removeDeletedTables() {
       'readiness_test_sessions', 'test_responses',
       'authors', 'categories', 'tags', 'blog_posts', 'post_categories', 'post_tags',
       'email_captures', 'email_campaigns',
-      'conversation_sessions', 'conversation_messages'
+      'conversation_sessions', 'conversation_messages',
+      'drizzle_schema_test'  // Test table
     ];
     
     // Get all existing tables
