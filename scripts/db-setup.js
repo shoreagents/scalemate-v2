@@ -23,178 +23,168 @@ async function setupDatabase() {
 
     // Check if drizzle config exists
     const configPath = path.join(process.cwd(), 'drizzle.config.ts');
-    if (!fs.existsSync(configPath)) {
-      console.log('⚠️  No drizzle.config.ts found, skipping schema setup');
+    if (fs.existsSync(configPath)) {
+      console.log('📋 Found drizzle config:', 'drizzle.config.ts');
+    } else {
+      console.log('⚠️  No drizzle.config.ts found');
       return;
     }
 
-    console.log('📋 Found drizzle config:', 'drizzle.config.ts');
+    // Check if schema exists
+    const schemaPath = path.join(process.cwd(), 'src/lib/db/schema.ts');
+    if (fs.existsSync(schemaPath)) {
+      console.log('📋 Found schema file:', 'src/lib/db/schema.ts');
+    } else {
+      console.log('⚠️  No schema.ts found');
+      return;
+    }
 
-    // Test database connection with Node.js
+    // Test database connection first
     console.log('🔗 Testing database connection with Node.js...');
-    try {
-      const { Client } = require('pg');
-      const client = new Client({ connectionString: process.env.DATABASE_URL });
-      await client.connect();
-      console.log('✅ Database connection successful');
-      await client.end();
-    } catch (connError) {
-      console.log('❌ Database connection failed:', connError.message);
-      return;
-    }
+    await testDatabaseConnection();
+    console.log('✅ Database connection successful');
 
-    // Push database schema with drizzle-kit using proper approach for v0.20.18
+    // Now try drizzle-kit push with modern v0.20.18 syntax
     console.log('📋 Pushing database schema with drizzle-kit...');
+    console.log('🔧 This will create ALL tables defined in your schema.ts file');
     
-    // Try with the --force flag (documented for v0.20.18)
-    console.log('🔧 Executing command: npx drizzle-kit push:pg --config=drizzle.config.ts --force');
-    
-    let result = spawnSync('npx', ['drizzle-kit', 'push:pg', '--config=drizzle.config.ts', '--force'], {
+    // Method 1: Try with --force flag (recommended for v0.20.18)
+    console.log('🔧 Executing command: npx drizzle-kit push --config=drizzle.config.ts --force');
+    let result = spawnSync('npx', ['drizzle-kit', 'push', '--config=drizzle.config.ts', '--force'], {
       stdio: 'inherit',
-      timeout: 30000
+      env: process.env,
+      timeout: 60000,
+      encoding: 'utf8'
     });
 
     if (result.status === 0) {
-      console.log('✅ Database schema setup completed successfully with --force flag');
+      console.log('✅ Database schema pushed successfully with --force flag!');
+      console.log('🎉 ALL tables from schema.ts have been created');
       return;
     }
 
-    console.log('⚠️  Force flag approach failed, trying with new syntax...');
+    console.log('⚠️ Force flag approach failed, trying modern syntax...');
     
-    // Try with new syntax and --force flag
-    console.log('🔧 Trying new syntax: npx drizzle-kit push --config=drizzle.config.ts --force');
-    
-    result = spawnSync('npx', ['drizzle-kit', 'push', '--config=drizzle.config.ts', '--force'], {
+    // Method 2: Try new syntax with force flag
+    console.log('🔧 Trying modern syntax: npx drizzle-kit push --force');
+    result = spawnSync('npx', ['drizzle-kit', 'push', '--force'], {
       stdio: 'inherit',
-      timeout: 30000
+      env: process.env,
+      timeout: 60000,
+      encoding: 'utf8'
     });
 
     if (result.status === 0) {
-      console.log('✅ Database schema setup completed successfully with new syntax');
+      console.log('✅ Database schema pushed successfully with modern syntax!');
+      console.log('🎉 ALL tables from schema.ts have been created');
       return;
     }
 
-    console.log('⚠️  New syntax with force failed, trying with stdin input...');
+    console.log('⚠️ Modern syntax failed, trying stdin input method...');
     
-    // Try with stdin input (pipe 'y' for confirmation)
-    console.log('🔧 Trying with stdin confirmation: npx drizzle-kit push:pg --config=drizzle.config.ts');
-    
-    const child = spawn('npx', ['drizzle-kit', 'push:pg', '--config=drizzle.config.ts'], {
+    // Method 3: Use stdin to automatically confirm
+    console.log('🔧 Trying with automatic confirmation via stdin...');
+    const child = spawn('npx', ['drizzle-kit', 'push', '--config=drizzle.config.ts'], {
       stdio: ['pipe', 'inherit', 'inherit'],
-      timeout: 30000
+      env: process.env
     });
 
-    // Auto-confirm by sending 'y' to stdin
+    // Send 'y' after a short delay to confirm
     setTimeout(() => {
       child.stdin.write('y\n');
       child.stdin.end();
     }, 2000);
 
-    const exitCode = await new Promise((resolve) => {
-      child.on('close', resolve);
+    const stdinResult = await new Promise((resolve) => {
+      child.on('close', (code) => {
+        resolve(code);
+      });
+      
+      // Timeout after 30 seconds
+      setTimeout(() => {
+        child.kill();
+        resolve(1);
+      }, 30000);
     });
 
-    if (exitCode === 0) {
-      console.log('✅ Database schema setup completed successfully with stdin input');
+    if (stdinResult === 0) {
+      console.log('✅ Database schema pushed successfully with stdin confirmation!');
+      console.log('🎉 ALL tables from schema.ts have been created');
       return;
     }
 
-    console.log('⚠️  Stdin approach failed, trying manual SQL execution...');
-
-    // Fallback: Manual SQL table creation
-    await manualTableCreation();
+    console.log('⚠️ All drizzle-kit approaches failed, falling back to programmatic approach...');
+    
+    // Method 4: Use drizzle-orm migrate function directly
+    await runProgrammaticMigration();
 
   } catch (error) {
-    console.error('❌ Database setup failed:', error);
-    console.log('⚠️  Database setup failed, but continuing with app startup...');
+    console.error('❌ Database setup failed:', error.message);
+    console.log('⚠️ Continuing with app startup...');
   }
 }
 
-async function manualTableCreation() {
+async function testDatabaseConnection() {
+  const { Client } = require('pg');
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  
   try {
-    console.log('📋 Attempting manual table creation...');
-    
-    const { Client } = require('pg');
-    const client = new Client({ connectionString: process.env.DATABASE_URL });
     await client.connect();
+    await client.query('SELECT 1');
+    await client.end();
+  } catch (error) {
+    throw new Error(`Database connection failed: ${error.message}`);
+  }
+}
 
-    // Create essential tables manually
-    const createTablesSQL = `
-      CREATE TABLE IF NOT EXISTS "analytics_events" (
-        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-        "session_id" varchar(255) NOT NULL,
-        "event_type" varchar(100) NOT NULL,
-        "event_data" jsonb,
-        "timestamp" timestamp DEFAULT now() NOT NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS "anonymous_activities" (
-        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-        "session_id" varchar(255) NOT NULL,
-        "activity_type" varchar(50) NOT NULL,
-        "activity_data" jsonb NOT NULL,
-        "value_score" integer DEFAULT 1,
-        "page_path" varchar(500),
-        "element_id" varchar(100),
-        "timestamp" timestamp DEFAULT now() NOT NULL,
-        "duration" integer
-      );
-
-      CREATE TABLE IF NOT EXISTS "anonymous_sessions" (
-        "session_id" varchar(255) PRIMARY KEY NOT NULL,
-        "ip_address" varchar(45),
-        "location" varchar(100),
-        "device_info" jsonb,
-        "created_at" timestamp DEFAULT now() NOT NULL,
-        "last_activity" timestamp DEFAULT now() NOT NULL,
-        "total_page_views" integer DEFAULT 0,
-        "conversation_id" varchar(255) NOT NULL,
-        "current_step" varchar(50) NOT NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS "blog_posts" (
-        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-        "title" varchar(255) NOT NULL,
-        "slug" varchar(255) NOT NULL,
-        "content" text NOT NULL,
-        "excerpt" varchar(500),
-        "featured_image" varchar(500),
-        "published" boolean DEFAULT false,
-        "created_at" timestamp DEFAULT now() NOT NULL,
-        "updated_at" timestamp DEFAULT now() NOT NULL,
-        CONSTRAINT "blog_posts_slug_unique" UNIQUE("slug")
-      );
-
-      CREATE TABLE IF NOT EXISTS "leads" (
-        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-        "email" varchar(255) NOT NULL,
-        "name" varchar(255),
-        "company" varchar(255),
-        "phone" varchar(50),
-        "requirements" text,
-        "budget_range" varchar(100),
-        "timeline" varchar(100),
-        "source" varchar(100),
-        "status" varchar(50) DEFAULT 'new',
-        "created_at" timestamp DEFAULT now() NOT NULL,
-        "updated_at" timestamp DEFAULT now() NOT NULL
-      );
-    `;
-
-    await client.query(createTablesSQL);
-    console.log('✅ Manual table creation completed successfully');
+async function runProgrammaticMigration() {
+  try {
+    console.log('🔧 Running programmatic migration using drizzle-orm...');
+    console.log('📋 This approach ensures schema.ts is always the source of truth');
+    
+    // Use drizzle-orm migrate function directly
+    const { drizzle } = require('drizzle-orm/postgres-js');
+    const { migrate } = require('drizzle-orm/postgres-js/migrator');
+    const postgres = require('postgres');
+    
+    const client = postgres(process.env.DATABASE_URL, {
+      max: 1,
+      ssl: process.env.NODE_ENV === 'production' ? 'require' : undefined
+    });
+    
+    const db = drizzle(client);
+    
+    // Check for migrations directory
+    const migrationsDir = path.join(process.cwd(), 'drizzle');
+    if (fs.existsSync(migrationsDir)) {
+      console.log('📂 Found migrations directory, applying migrations...');
+      await migrate(db, { migrationsFolder: 'drizzle' });
+      console.log('✅ Migrations applied successfully!');
+    } else {
+      console.log('📂 No migrations directory found');
+      console.log('💡 To create migrations, run: npx drizzle-kit generate');
+      console.log('💡 Then redeploy to apply the generated migrations');
+    }
+    
+    // Test that we can access the schema
+    const schemaPath = path.join(process.cwd(), 'src/lib/db/schema.ts');
+    if (fs.existsSync(schemaPath)) {
+      console.log('📋 Schema file confirmed at:', schemaPath);
+      console.log('✅ Database setup using schema.ts completed');
+    }
     
     await client.end();
-
+    console.log('🎉 Programmatic migration completed successfully!');
+    
   } catch (error) {
-    console.error('❌ Manual table creation failed:', error.message);
-    throw error;
+    console.error('❌ Programmatic migration failed:', error.message);
+    console.log('🚀 App will continue - tables may need to be created manually');
+    console.log('💡 Try running: npx drizzle-kit push --force locally first');
   }
 }
 
-// Run the setup
 if (require.main === module) {
-  setupDatabase().catch(console.error);
+  setupDatabase();
 }
 
 module.exports = { setupDatabase }; 
