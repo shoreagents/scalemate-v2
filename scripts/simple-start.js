@@ -33,9 +33,9 @@ async function start() {
     console.log('🔍 Checking database setup...');
     await runCommand('node', ['scripts/migrate-if-needed.js']);
     
-    // Start Next.js server
+    // Start Next.js server using npm script
     console.log('🌐 Starting Next.js server...');
-    await runCommand('npx', ['next', 'start']);
+    await runCommand('npm', ['run', 'start:next']);
     
   } catch (error) {
     console.error('❌ Startup failed:', error.message);

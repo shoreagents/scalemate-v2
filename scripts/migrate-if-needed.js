@@ -14,16 +14,16 @@ if (!process.env.DATABASE_URL) {
 console.log('🗄️  DATABASE_URL found - running database setup...');
 
 try {
-  // Run database migrations using simple drizzle command
+  // Run database migrations using npm scripts
   console.log('📋 Pushing database schema...');
-  execSync('npx drizzle-kit push', {
+  execSync('npm run db:migrate', {
     stdio: 'inherit',
     cwd: process.cwd(),
     env: { ...process.env }
   });
   
   console.log('📋 Seeding database...');
-  execSync('node scripts/seed.js', {
+  execSync('npm run db:seed', {
     stdio: 'inherit',
     cwd: process.cwd()
   });

@@ -1,6 +1,5 @@
-import { defineConfig } from 'drizzle-kit';
-
-export default defineConfig({
+// Use regular export to avoid drizzle-kit import at runtime
+export default {
   dialect: 'postgresql',
   schema: './src/lib/db/schema.ts',
   out: './drizzle',
@@ -12,4 +11,4 @@ export default defineConfig({
   introspect: {
     casing: 'camel'
   }
-}); 
+}; 

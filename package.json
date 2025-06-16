@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "node scripts/simple-start.js",
+    "start:next": "next start",
     "migrate:if-needed": "node scripts/migrate-if-needed.js",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
