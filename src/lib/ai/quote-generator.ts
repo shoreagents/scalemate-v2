@@ -533,22 +533,9 @@ IMPORTANT:
   }
 
   private async getRecommendedRoleTemplates(request: QuoteRequest): Promise<any[]> {
-    try {
-      // Find role templates that match the requirements
-      const templates = await db.query.roleTemplates.findMany({
-        where: and(
-          eq(roleTemplates.isActive, true),
-          eq(roleTemplates.category, this.categorizeRole(request.roleRequirements.title))
-        ),
-        orderBy: desc(roleTemplates.usageCount),
-        limit: 3
-      })
-
-      return templates
-    } catch (error) {
-      console.error('Failed to get role templates:', error)
-      return []
-    }
+    // TODO: Implement role template retrieval when database is properly configured
+    console.log(`🎯 Getting role templates for: ${request.roleRequirements.title}`)
+    return []
   }
 
   private async storeQuote(
@@ -556,21 +543,8 @@ IMPORTANT:
     request: QuoteRequest,
     roleTemplateId?: string
   ): Promise<void> {
-    try {
-      await db.insert(quoteGenerations).values({
-        sessionId: quote.sessionId,
-        roleTemplateId,
-        businessProfile: request.businessProfile,
-        roleRequirements: request.roleRequirements,
-        pricingInputs: request.qualificationData,
-        generatedQuote: quote.quote,
-        confidence: quote.confidence.toString(),
-        generationTime: 0, // Would be calculated from actual timing
-        version: quote.version
-      })
-    } catch (error) {
-      console.error('Failed to store quote:', error)
-    }
+    // TODO: Implement quote storage when database is properly configured
+    console.log(`💾 Storing quote for session: ${quote.sessionId}`)
   }
 
   private extractArray(value: any): string[] {

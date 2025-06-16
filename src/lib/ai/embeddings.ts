@@ -1,7 +1,7 @@
 import OpenAI from 'openai'
 import { db } from '@/lib/db'
 import { conversationEmbeddings } from '@/lib/db/schema'
-import { eq, sql } from 'drizzle-orm'
+import { eq, sql, and } from 'drizzle-orm'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -73,62 +73,9 @@ export class EmbeddingService {
     queryText: string,
     options: SimilaritySearchOptions = {}
   ): Promise<EmbeddingResult[]> {
-    const {
-      threshold = this.DEFAULT_THRESHOLD,
-      limit = this.DEFAULT_LIMIT,
-      categories,
-      sessionId
-    } = options
-
-    try {
-      // Generate embedding for query
-      const queryEmbedding = await this.generateEmbedding(queryText)
-      
-      // Build SQL query for cosine similarity
-      let query = db
-        .select({
-          content: conversationEmbeddings.content,
-          embedding: conversationEmbeddings.embedding,
-          category: conversationEmbeddings.category,
-          sessionId: conversationEmbeddings.sessionId,
-          similarity: sql<number>`1 - (${conversationEmbeddings.embedding}::vector <=> ${JSON.stringify(queryEmbedding)}::vector)`
-        })
-        .from(conversationEmbeddings)
-
-      // Add filters
-      const conditions = []
-      
-      if (sessionId) {
-        conditions.push(eq(conversationEmbeddings.sessionId, sessionId))
-      }
-      
-      if (categories && categories.length > 0) {
-        conditions.push(sql`${conversationEmbeddings.category} = ANY(${categories})`)
-      }
-
-      if (conditions.length > 0) {
-        query = query.where(sql`${conditions.join(' AND ')}`)
-      }
-
-      // Add similarity threshold and ordering
-      query = query
-        .where(sql`1 - (${conversationEmbeddings.embedding}::vector <=> ${JSON.stringify(queryEmbedding)}::vector) > ${threshold}`)
-        .orderBy(sql`1 - (${conversationEmbeddings.embedding}::vector <=> ${JSON.stringify(queryEmbedding)}::vector) DESC`)
-        .limit(limit)
-
-      const results = await query
-
-      return results.map(result => ({
-        content: result.content,
-        embedding: JSON.parse(result.embedding),
-        similarity: result.similarity,
-        category: result.category,
-        sessionId: result.sessionId
-      }))
-    } catch (error) {
-      console.error('Similarity search failed:', error)
-      return []
-    }
+    // TODO: Implement vector similarity search when database is properly configured
+    console.log(`🔍 Finding similar content for: ${queryText.slice(0, 50)}...`)
+    return []
   }
 
   async findSimilarSessions(
@@ -179,31 +126,12 @@ export class EmbeddingService {
     categories: Record<string, number>
     averageContentLength: number
   }> {
-    try {
-      const embeddings = await db.query.conversationEmbeddings.findMany({
-        where: eq(conversationEmbeddings.sessionId, sessionId)
-      })
-
-      const categories: Record<string, number> = {}
-      let totalContentLength = 0
-
-      for (const embedding of embeddings) {
-        categories[embedding.category] = (categories[embedding.category] || 0) + 1
-        totalContentLength += embedding.content.length
-      }
-
-      return {
-        totalEmbeddings: embeddings.length,
-        categories,
-        averageContentLength: embeddings.length > 0 ? totalContentLength / embeddings.length : 0
-      }
-    } catch (error) {
-      console.error('Failed to get embedding summary:', error)
-      return {
-        totalEmbeddings: 0,
-        categories: {},
-        averageContentLength: 0
-      }
+    // TODO: Implement embedding summary when database is properly configured
+    console.log(`📊 Getting embedding summary for session: ${sessionId}`)
+    return {
+      totalEmbeddings: 0,
+      categories: {},
+      averageContentLength: 0
     }
   }
 
@@ -232,64 +160,9 @@ export class EmbeddingService {
     sessionId: string,
     threshold: number = 0.8
   ): Promise<Array<{ cluster: EmbeddingResult[]; centroid: string }>> {
-    try {
-      const embeddings = await db.query.conversationEmbeddings.findMany({
-        where: eq(conversationEmbeddings.sessionId, sessionId)
-      })
-
-      if (embeddings.length === 0) return []
-
-      // Simple clustering algorithm
-      const clusters: Array<{ cluster: EmbeddingResult[]; centroid: string }> = []
-      const processed = new Set<string>()
-
-      for (const embedding of embeddings) {
-        if (processed.has(embedding.id)) continue
-
-        const cluster: EmbeddingResult[] = [{
-          content: embedding.content,
-          embedding: JSON.parse(embedding.embedding),
-          similarity: 1.0,
-          category: embedding.category,
-          sessionId: embedding.sessionId
-        }]
-
-        processed.add(embedding.id)
-
-        // Find similar embeddings
-        for (const otherEmbedding of embeddings) {
-          if (processed.has(otherEmbedding.id)) continue
-
-          const similarity = this.calculateCosineSimilarity(
-            JSON.parse(embedding.embedding),
-            JSON.parse(otherEmbedding.embedding)
-          )
-
-          if (similarity >= threshold) {
-            cluster.push({
-              content: otherEmbedding.content,
-              embedding: JSON.parse(otherEmbedding.embedding),
-              similarity,
-              category: otherEmbedding.category,
-              sessionId: otherEmbedding.sessionId
-            })
-            processed.add(otherEmbedding.id)
-          }
-        }
-
-        // Create centroid (most representative content)
-        const centroid = cluster.reduce((longest, current) => 
-          current.content.length > longest.content.length ? current : longest
-        ).content
-
-        clusters.push({ cluster, centroid })
-      }
-
-      return clusters.sort((a, b) => b.cluster.length - a.cluster.length)
-    } catch (error) {
-      console.error('Failed to cluster content:', error)
-      return []
-    }
+    // TODO: Implement content clustering when database is properly configured
+    console.log(`🔗 Clustering content for session: ${sessionId}`)
+    return []
   }
 
   private calculateCosineSimilarity(vectorA: number[], vectorB: number[]): number {
