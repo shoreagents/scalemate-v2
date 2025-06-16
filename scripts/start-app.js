@@ -3,37 +3,38 @@
 const { spawn, execSync } = require('child_process');
 const { existsSync } = require('fs');
 
-console.log('🚀 Starting ScaleMate application...');
+async function startApp() {
+  console.log('🚀 Starting ScaleMate application...');
 
-// First, try to run database setup and wait for completion
-try {
-  console.log('🔍 Running database setup...');
-  execSync('node scripts/db-setup.js', {
-    stdio: 'inherit',
-    cwd: process.cwd()
-  });
-  console.log('✅ Database setup completed successfully');
-} catch (error) {
-  console.log('⚠️  Database setup failed, continuing anyway:', error.message);
-}
+  // First, try to run database setup and wait for completion
+  try {
+    console.log('🔍 Running database setup...');
+    execSync('node scripts/db-setup.js', {
+      stdio: 'inherit',
+      cwd: process.cwd()
+    });
+    console.log('✅ Database setup completed successfully');
+  } catch (error) {
+    console.log('⚠️  Database setup failed, continuing anyway:', error.message);
+  }
 
-// Wait a moment for database to be ready
-console.log('⏳ Waiting for database to be ready...');
-await new Promise(resolve => setTimeout(resolve, 2000));
+  // Wait a moment for database to be ready
+  console.log('⏳ Waiting for database to be ready...');
+  await new Promise(resolve => setTimeout(resolve, 2000));
 
-// Now try to start Next.js using different approaches
-const nextStartMethods = [
-  () => spawn('node', ['server.js'], { stdio: 'inherit' }), // Next.js standalone server
-  () => spawn('./node_modules/.bin/next', ['start'], { stdio: 'inherit' }),
-  () => spawn('node_modules/.bin/next', ['start'], { stdio: 'inherit' }),
-  () => spawn('node', ['./node_modules/next/dist/bin/next', 'start'], { stdio: 'inherit' }),
-  () => spawn('node', ['node_modules/next/dist/bin/next', 'start'], { stdio: 'inherit' }),
-  () => spawn('next', ['start'], { stdio: 'inherit' }),
-  () => spawn('npx', ['next', 'start'], { stdio: 'inherit' }),
-  () => spawn('npm', ['run', 'start:next'], { stdio: 'inherit' })
-];
+  // Now try to start Next.js using different approaches
+  const nextStartMethods = [
+    () => spawn('node', ['server.js'], { stdio: 'inherit' }), // Next.js standalone server
+    () => spawn('./node_modules/.bin/next', ['start'], { stdio: 'inherit' }),
+    () => spawn('node_modules/.bin/next', ['start'], { stdio: 'inherit' }),
+    () => spawn('node', ['./node_modules/next/dist/bin/next', 'start'], { stdio: 'inherit' }),
+    () => spawn('node', ['node_modules/next/dist/bin/next', 'start'], { stdio: 'inherit' }),
+    () => spawn('next', ['start'], { stdio: 'inherit' }),
+    () => spawn('npx', ['next', 'start'], { stdio: 'inherit' }),
+    () => spawn('npm', ['run', 'start:next'], { stdio: 'inherit' })
+  ];
 
-async function tryStartNext() {
+  // Try to start Next.js using different approaches
   for (let i = 0; i < nextStartMethods.length; i++) {
     try {
       console.log(`🌐 Attempting to start Next.js (method ${i + 1})...`);
@@ -108,7 +109,8 @@ async function tryStartNext() {
   throw new Error('All Next.js startup methods failed');
 }
 
-tryStartNext().catch((error) => {
-  console.error('❌ Failed to start Next.js:', error.message);
+// Start the application
+startApp().catch((error) => {
+  console.error('❌ Failed to start application:', error.message);
   process.exit(1);
 }); 
