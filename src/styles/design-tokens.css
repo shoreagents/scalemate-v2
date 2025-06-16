@@ -1,0 +1,180 @@
+:root {
+  /* AI Neural Color Palette */
+  --primary-neural: #0066FF;
+  --quantum-purple: #6B46C1;
+  --cyber-green: #10B981;
+  --matrix-orange: #F59E0B;
+  --neural-pink: #EC4899;
+  
+  /* Gradient Definitions */
+  --gradient-neural-primary: linear-gradient(135deg, #0066FF 0%, #6B46C1 100%);
+  --gradient-neural-secondary: linear-gradient(135deg, #3385FF 0%, #8B5CF6 100%);
+  --gradient-cyber: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  --gradient-matrix: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+  --gradient-neural-glow: linear-gradient(135deg, #0066FF 0%, #6B46C1 50%, #EC4899 100%);
+  
+  /* Neural Network Animations */
+  --neural-pulse-duration: 8s;
+  --ai-processing-duration: 2s;
+  --shimmer-duration: 1.5s;
+  --glow-duration: 3s;
+  
+  /* Typography Scale */
+  --font-display: 'Outfit', 'Inter', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  
+  /* Spacing Neural Scale */
+  --space-neural-1: 0.25rem;
+  --space-neural-2: 0.5rem;
+  --space-neural-4: 1rem;
+  --space-neural-6: 1.5rem;
+  --space-neural-8: 2rem;
+  --space-neural-12: 3rem;
+  --space-neural-16: 4rem;
+  --space-neural-24: 6rem;
+  
+  /* AI Component Sizing */
+  --ai-card-radius: 12px;
+  --ai-button-radius: 8px;
+  --ai-input-radius: 6px;
+  
+  /* Neural Shadows */
+  --shadow-neural-sm: 0 2px 8px rgba(0, 102, 255, 0.1);
+  --shadow-neural-md: 0 4px 16px rgba(0, 102, 255, 0.15);
+  --shadow-neural-lg: 0 8px 32px rgba(0, 102, 255, 0.2);
+  --shadow-neural-xl: 0 16px 64px rgba(0, 102, 255, 0.25);
+  
+  /* Glassmorphism Effects */
+  --glass-bg: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --glass-backdrop: blur(20px);
+  
+  /* Neural Network Pattern */
+  --neural-dot-size: 2px;
+  --neural-line-width: 1px;
+  --neural-grid-size: 40px;
+}
+
+/* Dark Mode Overrides */
+[data-theme="dark"] {
+  --glass-bg: rgba(0, 0, 0, 0.2);
+  --glass-border: rgba(255, 255, 255, 0.1);
+}
+
+/* Neural Network Background Pattern */
+.neural-network-pattern {
+  background-image: 
+    radial-gradient(circle at 25% 25%, rgba(0, 102, 255, 0.1) 2px, transparent 2px),
+    radial-gradient(circle at 75% 75%, rgba(107, 70, 193, 0.1) 2px, transparent 2px),
+    radial-gradient(circle at 25% 75%, rgba(16, 185, 129, 0.1) 2px, transparent 2px),
+    radial-gradient(circle at 75% 25%, rgba(245, 158, 11, 0.1) 2px, transparent 2px);
+  background-size: var(--neural-grid-size) var(--neural-grid-size);
+  background-position: 0 0, 20px 20px, 0 20px, 20px 0;
+  animation: neuralFlow 20s linear infinite;
+}
+
+/* Grid Pattern for Backgrounds */
+.bg-grid-pattern {
+  background-image: 
+    linear-gradient(rgba(0, 102, 255, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 102, 255, 0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Gradient Text Utility */
+.gradient-text {
+  background: var(--gradient-neural-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Neural Animations */
+@keyframes neuralPulse {
+  0%, 100% { 
+    opacity: 0.4; 
+    transform: scale(1); 
+  }
+  50% { 
+    opacity: 0.8; 
+    transform: scale(1.05); 
+  }
+}
+
+@keyframes aiProcessing {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes glowPulse {
+  0%, 100% { 
+    box-shadow: 0 0 20px rgba(0, 102, 255, 0.3);
+  }
+  50% { 
+    box-shadow: 0 0 40px rgba(0, 102, 255, 0.6);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes bounceGentle {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-10px);
+  }
+  60% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes neuralFlow {
+  0% { background-position: 0 0, 20px 20px, 0 20px, 20px 0; }
+  100% { background-position: 40px 40px, 60px 60px, 40px 60px, 60px 40px; }
+}
+
+/* Utility Classes */
+.backdrop-blur-neural {
+  backdrop-filter: var(--glass-backdrop);
+}
+
+.shadow-neural-sm { box-shadow: var(--shadow-neural-sm); }
+.shadow-neural-md { box-shadow: var(--shadow-neural-md); }
+.shadow-neural-lg { box-shadow: var(--shadow-neural-lg); }
+.shadow-neural-xl { box-shadow: var(--shadow-neural-xl); }
+
+/* Animation Classes */
+.animate-neural-pulse { animation: neuralPulse var(--neural-pulse-duration) ease-in-out infinite; }
+.animate-ai-processing { animation: aiProcessing var(--ai-processing-duration) infinite; }
+.animate-shimmer { animation: shimmer var(--shimmer-duration) infinite; }
+.animate-glow-pulse { animation: glowPulse var(--glow-duration) ease-in-out infinite; }
+.animate-fade-in-up { animation: fadeInUp 0.6s ease-out; }
+.animate-slide-in-right { animation: slideInRight 0.4s ease-out; }
+.animate-bounce-gentle { animation: bounceGentle 2s infinite; } 
