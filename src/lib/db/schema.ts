@@ -1,19 +1,12 @@
 import { pgTable, text, timestamp, integer, boolean, jsonb, uuid, varchar, decimal } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
-// TEST: New table to verify automatic schema sync
-export const drizzleSchemaTest = pgTable('drizzle_schema_test', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  testMessage: varchar('test_message', { length: 255 }).notNull().default('Drizzle can read schema.ts!'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  schemaVersion: varchar('schema_version', { length: 50 }).notNull().default('v2.0'),
-})
-
 // Users and Sessions
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: varchar('email', { length: 255 }),
   sessionId: varchar('session_id', { length: 255 }).notNull(),
+  test: varchar('test', { length: 255 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   preferences: jsonb('preferences'),
@@ -85,16 +78,7 @@ export const readinessTestSessions = pgTable('readiness_test_sessions', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
 
-export const testResponses = pgTable('test_responses', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  sessionId: uuid('session_id').references(() => readinessTestSessions.id).notNull(),
-  questionId: varchar('question_id', { length: 255 }).notNull(),
-  questionText: text('question_text').notNull(),
-  answer: text('answer').notNull(),
-  score: integer('score').notNull(),
-  category: varchar('category', { length: 50 }).notNull(),
-  timestamp: timestamp('timestamp').defaultNow().notNull(),
-})
+
 
 // Blog and Content
 export const authors = pgTable('authors', {
@@ -332,14 +316,7 @@ export const quoteMessagesRelations = relations(quoteMessages, ({ one }) => ({
 }))
 
 export const readinessTestSessionsRelations = relations(readinessTestSessions, ({ many }) => ({
-  responses: many(testResponses),
-}))
-
-export const testResponsesRelations = relations(testResponses, ({ one }) => ({
-  session: one(readinessTestSessions, {
-    fields: [testResponses.sessionId],
-    references: [readinessTestSessions.id],
-  }),
+  // Relations removed since testResponses table was deleted
 }))
 
 export const authorsRelations = relations(authors, ({ many }) => ({
