@@ -13,7 +13,12 @@
     "test:e2e": "cypress open",
     "db:generate": "drizzle-kit generate:pg",
     "db:migrate": "drizzle-kit push:pg",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:deploy": "drizzle-kit push:pg --verbose",
+    "deploy:railway": "railway up --detach",
+    "postbuild": "npm run db:deploy",
+    "db:backup": "node scripts/backup.js",
+    "db:seed": "node scripts/seed.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.54.0",

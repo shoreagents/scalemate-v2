@@ -1,6 +1,238 @@
 import { pgTable, text, timestamp, integer, boolean, jsonb, uuid, varchar, decimal } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
+// ========================================
+// LEVEL 1: ANONYMOUS USER TRACKING
+// ========================================
+
+export const anonymousSessions = pgTable('anonymous_sessions', {
+  sessionId: varchar('session_id', { length: 255 }).primaryKey(),
+  ipAddress: varchar('ip_address', { length: 45 }),
+  location: varchar('location', { length: 100 }),
+  deviceInfo: jsonb('device_info'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  lastActivity: timestamp('last_activity').defaultNow().notNull(),
+  totalPageViews: integer('total_page_views').default(0),
+  timeOnSite: integer('time_on_site').default(0), // seconds
+  referralSource: varchar('referral_source', { length: 500 }),
+  utmCampaign: varchar('utm_campaign', { length: 100 }),
+  utmSource: varchar('utm_source', { length: 100 }),
+  utmMedium: varchar('utm_medium', { length: 100 }),
+  conversionScore: integer('conversion_score').default(0),
+  status: varchar('status', { length: 20 }).default('active'), // active, converted, expired
+})
+
+export const anonymousActivities = pgTable('anonymous_activities', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  sessionId: varchar('session_id', { length: 255 }).references(() => anonymousSessions.sessionId).notNull(),
+  activityType: varchar('activity_type', { length: 50 }).notNull(), // page_view, button_click, tool_use, download, form_interaction
+  activityData: jsonb('activity_data').notNull(),
+  valueScore: integer('value_score').default(1), // importance of this activity (1-100)
+  pagePath: varchar('page_path', { length: 500 }),
+  elementId: varchar('element_id', { length: 100 }),
+  timestamp: timestamp('timestamp').defaultNow().notNull(),
+  duration: integer('duration'), // how long they spent on this activity
+})
+
+// ========================================
+// LEVEL 2: USER REGISTRATION & PROFILES
+// ========================================
+
+// Enhanced users table (extending existing)
+// ... existing users table ...
+
+export const userProfiles = pgTable('user_profiles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id).notNull().unique(),
+  businessName: varchar('business_name', { length: 255 }),
+  businessType: varchar('business_type', { length: 100 }), // Real Estate, Healthcare, E-commerce, etc.
+  industryCategory: varchar('industry_category', { length: 100 }), // Property Management, Medical Practice, etc.
+  locationCountry: varchar('location_country', { length: 100 }),
+  locationState: varchar('location_state', { length: 100 }),
+  locationCity: varchar('location_city', { length: 100 }),
+  timezone: varchar('timezone', { length: 50 }),
+  companySize: varchar('company_size', { length: 50 }),
+  yearlyRevenue: varchar('yearly_revenue', { length: 50 }),
+  currentChallenges: jsonb('current_challenges'), // Array of challenges
+  toolsCurrentlyUsing: jsonb('tools_currently_using'), // Array of current tools/CRMs
+  primaryGoals: jsonb('primary_goals'), // Array of goals
+  budgetRange: varchar('budget_range', { length: 100 }),
+  hiringExperience: varchar('hiring_experience', { length: 50 }), // none, some, experienced
+  remoteWorkExperience: varchar('remote_work_experience', { length: 50 }),
+  preferredCommunication: jsonb('preferred_communication'), // email, slack, teams, etc.
+  workingHours: jsonb('working_hours'), // their timezone and preferred hours
+  profileCompletionScore: integer('profile_completion_score').default(0), // 0-100%
+  onboardingStep: integer('onboarding_step').default(0),
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+// ========================================
+// LEVEL 3: INDUSTRY-SPECIFIC TOOL LOGIC
+// ========================================
+
+export const toolConfigurations = pgTable('tool_configurations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  toolName: varchar('tool_name', { length: 100 }).notNull(),
+  industryType: varchar('industry_type', { length: 100 }).notNull(),
+  questionFlow: jsonb('question_flow').notNull(), // Array of questions
+  taskOptions: jsonb('task_options').notNull(), // Industry-specific tasks
+  crmIntegrations: jsonb('crm_integrations'), // Available CRM integrations
+  roleTemplates: jsonb('role_templates'), // Common roles for industry
+  pricingFactors: jsonb('pricing_factors'), // Location, complexity adjustments
+  isActive: boolean('is_active').default(true),
+  version: varchar('version', { length: 20 }).default('1.0'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+export const personalizedInteractions = pgTable('personalized_interactions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id).notNull(),
+  sessionId: varchar('session_id', { length: 255 }),
+  interactionType: varchar('interaction_type', { length: 50 }).notNull(),
+  toolName: varchar('tool_name', { length: 100 }),
+  industryContext: varchar('industry_context', { length: 100 }),
+  questionsAsked: jsonb('questions_asked'),
+  responsesGiven: jsonb('responses_given'),
+  recommendationsMade: jsonb('recommendations_made'),
+  completionStatus: varchar('completion_status', { length: 20 }).default('in_progress'),
+  completionScore: integer('completion_score').default(0), // 0-100
+  timeSpent: integer('time_spent'), // seconds
+  profileInfluenceFactors: jsonb('profile_influence_factors'), // which profile aspects influenced this
+  conversionValue: decimal('conversion_value', { precision: 10, scale: 2 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+// ========================================
+// LEVEL 4: ENHANCED QUOTE SYSTEM
+// ========================================
+
+export const profileBasedQuoteSessions = pgTable('profile_based_quote_sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id).notNull(),
+  sessionType: varchar('session_type', { length: 20 }).default('authenticated'), // anonymous, authenticated
+  businessContext: jsonb('business_context').notNull(), // Pulled from profile
+  roleBeingQuoted: varchar('role_being_quoted', { length: 255 }).notNull(),
+  industrySpecificQuestions: jsonb('industry_specific_questions'),
+  industrySpecificAnswers: jsonb('industry_specific_answers'),
+  locationAdjustments: jsonb('location_adjustments'), // Currency, cost of living adjustments
+  complexityFactors: jsonb('complexity_factors'), // Technical skills, language requirements
+  finalQuote: jsonb('final_quote').notNull(),
+  alternativeQuotes: jsonb('alternative_quotes'), // Different role variations
+  confidenceScore: decimal('confidence_score', { precision: 5, scale: 2 }).default('0.00'),
+  adminNotes: text('admin_notes'),
+  status: varchar('status', { length: 20 }).default('draft'), // draft, completed, sent_to_admin, converted
+  quoteValidUntil: timestamp('quote_valid_until'),
+  conversionProbability: decimal('conversion_probability', { precision: 5, scale: 2 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+export const quoteRecommendations = pgTable('quote_recommendations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  quoteSessionId: uuid('quote_session_id').references(() => profileBasedQuoteSessions.id).notNull(),
+  recommendationType: varchar('recommendation_type', { length: 50 }).notNull(), // next_tool, upgrade, consultation, course
+  recommendationTitle: varchar('recommendation_title', { length: 255 }).notNull(),
+  recommendationDescription: text('recommendation_description'),
+  recommendationData: jsonb('recommendation_data'),
+  basedOnProfile: jsonb('based_on_profile'), // Profile factors that influenced this
+  priorityScore: integer('priority_score').default(5), // 1-10
+  isActive: boolean('is_active').default(true),
+  deliveredAt: timestamp('delivered_at'),
+  clickedAt: timestamp('clicked_at'),
+  convertedAt: timestamp('converted_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
+// ========================================
+// LEVEL 5: ADMIN LEAD MANAGEMENT
+// ========================================
+
+export const leads = pgTable('leads', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id).notNull().unique(),
+  anonymousSessionId: varchar('anonymous_session_id', { length: 255 }).references(() => anonymousSessions.sessionId),
+  leadSource: varchar('lead_source', { length: 100 }).notNull(), // quote_calculator, role_builder, contact_form, etc.
+  leadScore: integer('lead_score').default(0), // 0-100
+  qualificationScore: integer('qualification_score').default(0), // 0-100
+  businessProfile: jsonb('business_profile').notNull(),
+  activitySummary: jsonb('activity_summary'),
+  toolUsageSummary: jsonb('tool_usage_summary'),
+  quoteRequests: jsonb('quote_requests'),
+  priorityLevel: varchar('priority_level', { length: 20 }).default('medium'), // hot, warm, cold, medium
+  assignedTo: uuid('assigned_to'), // Admin/sales person ID
+  salesStage: varchar('sales_stage', { length: 50 }).default('new'), // new, contacted, qualified, proposal, negotiation, closed_won, closed_lost
+  status: varchar('status', { length: 20 }).default('new'),
+  adminNotes: text('admin_notes'),
+  lastContactDate: timestamp('last_contact_date'),
+  nextFollowUpDate: timestamp('next_follow_up_date'),
+  estimatedValue: decimal('estimated_value', { precision: 10, scale: 2 }),
+  closeProbability: decimal('close_probability', { precision: 5, scale: 2 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  lastUpdated: timestamp('last_updated').defaultNow().notNull(),
+})
+
+export const leadActivities = pgTable('lead_activities', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  leadId: uuid('lead_id').references(() => leads.id).notNull(),
+  activityType: varchar('activity_type', { length: 50 }).notNull(),
+  activityTitle: varchar('activity_title', { length: 255 }).notNull(),
+  activityDetails: jsonb('activity_details'),
+  impactOnScore: integer('impact_on_score').default(0), // +/- points to lead score
+  performedBy: varchar('performed_by', { length: 50 }), // system, admin, user
+  isVisible: boolean('is_visible').default(true), // show in timeline
+  timestamp: timestamp('timestamp').defaultNow().notNull(),
+})
+
+// ========================================
+// LEVEL 6: RE-ENGAGEMENT SYSTEM
+// ========================================
+
+export const userRecommendations = pgTable('user_recommendations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id).notNull(),
+  recommendationType: varchar('recommendation_type', { length: 50 }).notNull(), // next_tool, content, upgrade, course
+  recommendationTitle: varchar('recommendation_title', { length: 255 }).notNull(),
+  recommendationDescription: text('recommendation_description'),
+  recommendationUrl: varchar('recommendation_url', { length: 500 }),
+  basedOnProfile: jsonb('based_on_profile'),
+  basedOnActivity: jsonb('based_on_activity'),
+  priorityScore: integer('priority_score').default(5), // 1-10
+  category: varchar('category', { length: 50 }), // tool, course, content, upgrade
+  shownOnDashboard: boolean('shown_on_dashboard').default(false),
+  clicked: boolean('clicked').default(false),
+  completed: boolean('completed').default(false),
+  dismissed: boolean('dismissed').default(false),
+  isActive: boolean('is_active').default(true),
+  expiresAt: timestamp('expires_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
+export const engagementCampaigns = pgTable('engagement_campaigns', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id).notNull(),
+  campaignType: varchar('campaign_type', { length: 50 }).notNull(), // welcome_series, tool_suggestion, upgrade_prompt, re_engagement
+  triggerEvent: varchar('trigger_event', { length: 100 }).notNull(),
+  messageTemplate: jsonb('message_template').notNull(),
+  personalizationData: jsonb('personalization_data'), // Data used for personalization
+  sendMethod: varchar('send_method', { length: 20 }).notNull(), // email, dashboard_notification, popup
+  scheduledFor: timestamp('scheduled_for').notNull(),
+  sentAt: timestamp('sent_at'),
+  openedAt: timestamp('opened_at'),
+  clickedAt: timestamp('clicked_at'),
+  conversionResult: varchar('conversion_result', { length: 50 }), // signed_up, used_tool, upgraded, purchased
+  conversionValue: decimal('conversion_value', { precision: 10, scale: 2 }),
+  status: varchar('status', { length: 20 }).default('scheduled'), // scheduled, sent, opened, clicked, converted, failed
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
+// ========================================
+// EXISTING TABLES (keeping all your current tables)
+// ========================================
+
 // Users and Sessions
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -439,5 +671,91 @@ export const reEngagementCampaignsRelations = relations(reEngagementCampaigns, (
   session: one(conversationSessions, {
     fields: [reEngagementCampaigns.sessionId],
     references: [conversationSessions.id],
+  }),
+}))
+
+// ========================================
+// NEW PROFILE-BASED ARCHITECTURE RELATIONS
+// ========================================
+
+export const anonymousSessionsRelations = relations(anonymousSessions, ({ many, one }) => ({
+  activities: many(anonymousActivities),
+  leads: many(leads),
+}))
+
+export const anonymousActivitiesRelations = relations(anonymousActivities, ({ one }) => ({
+  session: one(anonymousSessions, {
+    fields: [anonymousActivities.sessionId],
+    references: [anonymousSessions.sessionId],
+  }),
+}))
+
+export const userProfilesRelations = relations(userProfiles, ({ one, many }) => ({
+  user: one(users, {
+    fields: [userProfiles.userId],
+    references: [users.id],
+  }),
+  interactions: many(personalizedInteractions),
+  quoteSessions: many(profileBasedQuoteSessions),
+  recommendations: many(userRecommendations),
+  campaigns: many(engagementCampaigns),
+}))
+
+export const personalizedInteractionsRelations = relations(personalizedInteractions, ({ one }) => ({
+  user: one(users, {
+    fields: [personalizedInteractions.userId],
+    references: [users.id],
+  }),
+  profile: one(userProfiles, {
+    fields: [personalizedInteractions.userId],
+    references: [userProfiles.userId],
+  }),
+}))
+
+export const profileBasedQuoteSessionsRelations = relations(profileBasedQuoteSessions, ({ one, many }) => ({
+  user: one(users, {
+    fields: [profileBasedQuoteSessions.userId],
+    references: [users.id],
+  }),
+  recommendations: many(quoteRecommendations),
+}))
+
+export const quoteRecommendationsRelations = relations(quoteRecommendations, ({ one }) => ({
+  quoteSession: one(profileBasedQuoteSessions, {
+    fields: [quoteRecommendations.quoteSessionId],
+    references: [profileBasedQuoteSessions.id],
+  }),
+}))
+
+export const leadsRelations = relations(leads, ({ one, many }) => ({
+  user: one(users, {
+    fields: [leads.userId],
+    references: [users.id],
+  }),
+  anonymousSession: one(anonymousSessions, {
+    fields: [leads.anonymousSessionId],
+    references: [anonymousSessions.sessionId],
+  }),
+  activities: many(leadActivities),
+}))
+
+export const leadActivitiesRelations = relations(leadActivities, ({ one }) => ({
+  lead: one(leads, {
+    fields: [leadActivities.leadId],
+    references: [leads.id],
+  }),
+}))
+
+export const userRecommendationsRelations = relations(userRecommendations, ({ one }) => ({
+  user: one(users, {
+    fields: [userRecommendations.userId],
+    references: [users.id],
+  }),
+}))
+
+export const engagementCampaignsRelations = relations(engagementCampaigns, ({ one }) => ({
+  user: one(users, {
+    fields: [engagementCampaigns.userId],
+    references: [users.id],
   }),
 })) 
