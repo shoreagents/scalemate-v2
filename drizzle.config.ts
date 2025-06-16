@@ -8,7 +8,4 @@ export default {
   },
   verbose: true,
   strict: true,
-  introspect: {
-    casing: 'camel'
-  }
 }; 
