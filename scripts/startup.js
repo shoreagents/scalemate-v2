@@ -41,7 +41,11 @@ async function startup() {
       
       try {
         // Run database migrations
-        await runCommand('npm', ['run', 'db:deploy']);
+        await runCommand('npx', ['drizzle-kit', 'push:pg', '--schema=./src/lib/db/schema.ts', '--driver=pg']);
+        console.log('✅ Database schema pushed successfully');
+        
+        // Run database seeding
+        await runCommand('node', ['scripts/seed.js']);
         console.log('✅ Database migrations completed successfully');
       } catch (error) {
         console.log('⚠️  Database migration failed - continuing with app startup');
@@ -51,7 +55,7 @@ async function startup() {
 
     // Start the Next.js application
     console.log('🌐 Starting Next.js server...');
-    await runCommand('npm', ['start']);
+    await runCommand('npx', ['next', 'start']);
     
   } catch (error) {
     console.error('❌ Startup failed:', error.message);

@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "start:railway": "node scripts/startup.js",
+    "start": "npm run migrate:if-needed && next start",
+    "migrate:if-needed": "node scripts/migrate-if-needed.js",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "test": "jest",
