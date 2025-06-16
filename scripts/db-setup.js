@@ -10,15 +10,13 @@ console.log('🔧 NODE_ENV:', process.env.NODE_ENV);
 
 // Check if DATABASE_URL is available
 if (!process.env.DATABASE_URL) {
-  console.log('⚠️  DATABASE_URL not found - skipping database setup');
-  console.log('Available environment variables:');
-  console.log('- DATABASE_URL:', process.env.DATABASE_URL ? 'Present' : 'Missing');
-  console.log('- NODE_ENV:', process.env.NODE_ENV || 'Missing');
-  console.log('- OPENAI_API_KEY:', process.env.OPENAI_API_KEY ? 'Present' : 'Missing');
+  console.log('⚠️  DATABASE_URL not found');
+  console.log('🔧 This is expected in local development');
+  console.log('✅ Skipping database setup for local development');
   process.exit(0);
 }
 
-console.log('🗄️  DATABASE_URL found - attempting database setup...');
+console.log('🗄️  DATABASE_URL found - running database setup...');
 console.log('🔧 DATABASE_URL format check:', process.env.DATABASE_URL.substring(0, 20) + '...');
 
 // Check for drizzle config file
@@ -32,8 +30,9 @@ for (const file of configFiles) {
 }
 
 if (!configFile) {
-  console.log('⚠️  No drizzle config file found - skipping database setup');
-  process.exit(0);
+  console.error('❌ No drizzle config file found');
+  console.error('❌ Database setup cannot proceed without configuration');
+  process.exit(1);
 }
 
 console.log('📋 Found drizzle config:', configFile);
@@ -43,28 +42,21 @@ const possiblePaths = [
   './node_modules/.bin/drizzle-kit',
   'node_modules/.bin/drizzle-kit',
   '/app/node_modules/.bin/drizzle-kit',
-  'node_modules/drizzle-kit/bin.cjs',
-  'npx drizzle-kit'
+  'node_modules/drizzle-kit/bin.cjs'
 ];
 
 let drizzleCommand = null;
 for (const testPath of possiblePaths) {
-  if (testPath === 'npx drizzle-kit') {
-    drizzleCommand = testPath;
-    break;
-  }
   if (existsSync(testPath)) {
     drizzleCommand = testPath;
     break;
   }
 }
 
+// If no local path found, try npx
 if (!drizzleCommand) {
-  console.log('⚠️  drizzle-kit not found in any expected location');
-  console.log('Checked paths:');
-  possiblePaths.forEach(p => console.log(`  - ${p}: ${existsSync(p) ? 'Found' : 'Not found'}`));
-  console.log('🔧 Database will need to be set up manually');
-  process.exit(0);
+  console.log('📋 No local drizzle-kit found, using npx...');
+  drizzleCommand = 'npx drizzle-kit';
 }
 
 console.log(`📋 Using drizzle command: ${drizzleCommand}`);
@@ -77,55 +69,52 @@ try {
   console.log('🔧 Executing command:', pushCommand);
   
   const result = execSync(pushCommand, {
-    stdio: 'pipe',
+    stdio: 'inherit',
     cwd: process.cwd(),
     env: { ...process.env },
-    encoding: 'utf8'
+    timeout: 60000 // 60 second timeout
   });
   
-  console.log('📋 Schema push output:', result);
   console.log('✅ Schema push completed successfully');
   
   // Check if seed script exists
   if (existsSync('scripts/seed.js')) {
     console.log('📋 Seeding database...');
     
-    const seedResult = execSync('node scripts/seed.js', {
-      stdio: 'pipe',
+    execSync('node scripts/seed.js', {
+      stdio: 'inherit',
       cwd: process.cwd(),
       env: { ...process.env },
-      encoding: 'utf8'
+      timeout: 30000 // 30 second timeout
     });
     
-    console.log('📋 Seed output:', seedResult);
     console.log('✅ Database seeding completed successfully');
   } else {
     console.log('⚠️  No seed script found - skipping seeding');
   }
   
   console.log('✅ Database setup completed successfully');
+  console.log('🚀 Application ready to start');
+  
 } catch (error) {
-  console.log('⚠️  Database setup failed - app will continue without database features');
-  console.error('Setup error:', error.message);
-  console.error('Error code:', error.status);
+  console.error('❌ Database setup failed');
+  console.error('❌ Error:', error.message);
+  console.error('❌ Exit code:', error.status);
+  
   if (error.stdout) {
-    console.error('stdout:', error.stdout.toString());
+    console.error('📋 stdout:', error.stdout.toString());
   }
   if (error.stderr) {
-    console.error('stderr:', error.stderr.toString());
+    console.error('📋 stderr:', error.stderr.toString());
   }
   
-  // Try alternative approach with direct node execution
-  console.log('🔧 Trying alternative drizzle-kit execution...');
-  try {
-    const altResult = execSync('node node_modules/drizzle-kit/bin.cjs push:pg', {
-      stdio: 'pipe',
-      cwd: process.cwd(),
-      env: { ...process.env },
-      encoding: 'utf8'
-    });
-    console.log('✅ Alternative execution successful:', altResult);
-  } catch (altError) {
-    console.error('❌ Alternative execution also failed:', altError.message);
+  // For production deployments, we want to fail the build if DB setup fails
+  if (process.env.NODE_ENV === 'production') {
+    console.error('❌ Production deployment failed - database setup required');
+    console.error('❌ Deployment will not continue');
+    process.exit(1);
+  } else {
+    console.log('⚠️  Development mode - continuing despite database setup failure');
+    process.exit(0);
   }
 } 

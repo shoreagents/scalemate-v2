@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "node scripts/start-app.js",
+    "postbuild": "node scripts/db-setup.js",
+    "start": "next start",
     "start:next": "next start",
     "migrate:if-needed": "node scripts/migrate-if-needed.js",
     "lint": "next lint",
