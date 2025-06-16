@@ -100,16 +100,19 @@ export async function GET(request: NextRequest) {
     }
 
     // Get analytics events
-    const events = await db.query.conversationAnalytics.findMany({
-      where: and(...conditions),
-      orderBy: desc(conversationAnalytics.timestamp),
-      limit
-    })
+    const events = await db
+      .select()
+      .from(conversationAnalytics)
+      .where(and(...conditions))
+      .orderBy(desc(conversationAnalytics.timestamp))
+      .limit(limit)
 
     // Get session summary
-    const sessionSummary = await db.query.conversationSessions.findFirst({
-      where: eq(conversationSessions.id, sessionId)
-    })
+    const sessionSummary = await db
+      .select()
+      .from(conversationSessions)
+      .where(eq(conversationSessions.id, sessionId))
+      .limit(1)
 
     // Calculate session metrics
     const metrics = await calculateSessionMetrics(sessionId)
@@ -139,10 +142,11 @@ export async function GET(request: NextRequest) {
 async function calculateSessionMetrics(sessionId: string) {
   try {
     // Get all events for the session
-    const events = await db.query.conversationAnalytics.findMany({
-      where: eq(conversationAnalytics.sessionId, sessionId),
-      orderBy: desc(conversationAnalytics.timestamp)
-    })
+    const events = await db
+      .select()
+      .from(conversationAnalytics)
+      .where(eq(conversationAnalytics.sessionId, sessionId))
+      .orderBy(desc(conversationAnalytics.timestamp))
 
     if (events.length === 0) {
       return {
@@ -169,7 +173,7 @@ async function calculateSessionMetrics(sessionId: string) {
     }
 
     // Calculate engagement score (simplified)
-    const messageEvents = events.filter(e => e.eventType === 'message_sent' || e.eventType === 'message_received')
+    const messageEvents = events.filter((e: any) => e.eventType === 'message_sent' || e.eventType === 'message_received')
     const engagementScore = Math.min(100, (messageEvents.length / 10) * 100) // Max 100 for 10+ messages
 
     return {
@@ -194,9 +198,9 @@ async function calculateSessionMetrics(sessionId: string) {
 }
 
 function calculateAverageResponseTime(events: any[]): number {
-  const messageEvents = events.filter(e => 
+  const messageEvents = events.filter((e: any) => 
     e.eventType === 'message_sent' || e.eventType === 'message_received'
-  ).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+  ).sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
 
   if (messageEvents.length < 2) return 0
 

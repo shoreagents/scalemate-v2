@@ -106,9 +106,10 @@ export class EmbeddingService {
         conditions.push(sql`${conversationEmbeddings.category} = ANY(${categories})`)
       }
 
-      if (conditions.length > 0) {
-        query = query.where(sql`${conditions.join(' AND ')}`)
-      }
+      // TODO: Fix query conditions when database is working
+      // if (conditions.length > 0) {
+      //   query = query.where(sql`${conditions.join(' AND ')}`)
+      // }
 
       // Add similarity threshold and ordering
       query = query

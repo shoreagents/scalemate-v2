@@ -79,7 +79,7 @@ export function ConversationInterface({
   // Initialize conversation
   useEffect(() => {
     initializeConversation()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-scroll to bottom
   useEffect(() => {
