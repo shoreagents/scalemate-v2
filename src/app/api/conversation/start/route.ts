@@ -1,10 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ConversationEngine } from '@/lib/ai/conversation-engine'
+// Dynamic import to prevent build-time initialization issues
+// import { ConversationEngine } from '@/lib/ai/conversation-engine'
 import { headers } from 'next/headers'
 import { v4 as uuidv4 } from 'uuid'
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if we're in build time (no DATABASE_URL available)
+    if (!process.env.DATABASE_URL && process.env.NODE_ENV !== 'development') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Service temporarily unavailable',
+          message: 'Database connection not available'
+        },
+        { status: 503 }
+      )
+    }
+
     const headersList = headers()
     const userAgent = headersList.get('user-agent') || ''
     const forwarded = headersList.get('x-forwarded-for')
@@ -13,11 +26,20 @@ export async function POST(request: NextRequest) {
     // Generate anonymous ID for tracking
     const anonymousId = uuidv4()
     
-    // Initialize conversation engine
-    const conversationEngine = new ConversationEngine()
+    // Initialize conversation engine dynamically
+    let conversationEngine
+    let sessionId
     
-    // Start new conversation
-    const sessionId = await conversationEngine.startConversation(anonymousId)
+    try {
+      const { ConversationEngine } = await import('@/lib/ai/conversation-engine')
+      conversationEngine = new ConversationEngine()
+      
+      // Start new conversation
+      sessionId = await conversationEngine.startConversation(anonymousId)
+    } catch (error) {
+      console.error('Failed to initialize conversation engine:', error)
+      throw error
+    }
     
     return NextResponse.json({
       success: true,

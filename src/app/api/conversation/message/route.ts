@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { ConversationEngine } from '@/lib/ai/conversation-engine'
-import { qdrantService } from '@/lib/ai/qdrant-service'
+// Dynamic imports to prevent build-time initialization issues
+// import { ConversationEngine } from '@/lib/ai/conversation-engine'
+// import { qdrantService } from '@/lib/ai/qdrant-service'
 
 const messageSchema = z.object({
   sessionId: z.string(),
@@ -10,18 +11,38 @@ const messageSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if we're in build time (no DATABASE_URL available)
+    if (!process.env.DATABASE_URL && process.env.NODE_ENV !== 'development') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Service temporarily unavailable',
+          message: 'Database connection not available'
+        },
+        { status: 503 }
+      )
+    }
+
     const body = await request.json()
     const { sessionId, message } = messageSchema.parse(body)
 
-    // Initialize Qdrant service if needed
+    // Initialize services dynamically
+    let conversationEngine
     try {
-      await qdrantService.initialize()
+      const { ConversationEngine } = await import('@/lib/ai/conversation-engine')
+      conversationEngine = new ConversationEngine()
+      
+      // Try to initialize Qdrant service if available
+      try {
+        const { qdrantService } = await import('@/lib/ai/qdrant-service')
+        await qdrantService.initialize()
+      } catch (error) {
+        console.warn('Qdrant initialization failed, continuing without vector search:', error)
+      }
     } catch (error) {
-      console.warn('Qdrant initialization failed, continuing without vector search:', error)
+      console.error('Failed to initialize conversation engine:', error)
+      throw error
     }
-
-    // Create conversation engine instance
-    const conversationEngine = new ConversationEngine()
     
     // Process message with enhanced conversation engine
     const result = await conversationEngine.processMessage(sessionId, message)
@@ -79,9 +100,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Get conversation history
-    const conversationEngine = new ConversationEngine()
-    // This would require implementing a getConversationHistory method
-    // const history = await conversationEngine.getConversationHistory(sessionId)
+    let conversationEngine
+    try {
+      const { ConversationEngine } = await import('@/lib/ai/conversation-engine')
+      conversationEngine = new ConversationEngine()
+      // This would require implementing a getConversationHistory method
+      // const history = await conversationEngine.getConversationHistory(sessionId)
+    } catch (error) {
+      console.error('Failed to initialize conversation engine:', error)
+      throw error
+    }
     
     return NextResponse.json({
       success: true,
