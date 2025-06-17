@@ -22,7 +22,17 @@ export const anonymousSessions = pgTable('anonymous_sessions', {
   status: varchar('status', { length: 20 }).default('active'), // active, converted, expired
 })
 
-
+export const anonymousActivities = pgTable('anonymous_activities', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  sessionId: varchar('session_id', { length: 255 }).references(() => anonymousSessions.sessionId).notNull(),
+  activityType: varchar('activity_type', { length: 50 }).notNull(), // page_view, button_click, tool_use, download, form_interaction
+  activityData: jsonb('activity_data').notNull(),
+  valueScore: integer('value_score').default(1), // importance of this activity (1-100)
+  pagePath: varchar('page_path', { length: 500 }),
+  elementId: varchar('element_id', { length: 100 }),
+  timestamp: timestamp('timestamp').defaultNow().notNull(),
+  duration: integer('duration'), // how long they spent on this activity
+})
 
 // ========================================
 // LEVEL 2: USER REGISTRATION & PROFILES
