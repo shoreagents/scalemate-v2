@@ -532,6 +532,20 @@ export const reEngagementCampaigns = pgTable('re_engagement_campaigns', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
+// ========================================
+// TEST TABLE
+// ========================================
+
+export const testTable = pgTable('test_table', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  isActive: boolean('is_active').default(true),
+  testData: jsonb('test_data'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
